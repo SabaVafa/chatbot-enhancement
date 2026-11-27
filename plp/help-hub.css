@@ -1,0 +1,1154 @@
+/* ============================================================
+   Metzler Help Hub — component stylesheet (BEM prefix `hh-`)
+   Spec: research/03-design-spec.md (§3 layout, §4 visual, §5 motion)
+
+   CONTRACT
+   - Root `.hh#helpHub` is `display: contents`; every visible part is
+     `position: fixed` and sits on one right axis above the Trusted Shops
+     badge. Change `--hh-badge-h` on `.hh` to move the whole stack.
+   - State classes on `.hh` (set by help-hub.js):
+       is-ready        launcher may appear (DOMContentLoaded + 400 ms)
+       is-open         panel visible (panel also loses `hidden`)
+       is-closing      150 / 220 ms exit animation running
+       is-chat-open    Botpress window open → launcher / top / nudge hidden
+       is-hidden       suppressed by another overlay (display: none)
+       is-closed-hours hotline outside Mo–Fr 09:00–16:00 (grey dot)
+       is-loading      Botpress script injecting (spinner on chat tile)
+       is-chat-error   Botpress unavailable (chat tile disabled)
+   - Everything else is driven by `aria-expanded` on `.hh-fab` and the
+     `hidden` attribute on panel / scrim / badge / nudge / top button.
+   - Only `transform` and `opacity` animate; house easing
+     cubic-bezier(.2,.8,.2,1); reduced motion → 120 ms opacity only.
+   - Layers: scrim 1039, fab / top / panel / nudge 1040. The contact
+     modal (`.overlay`) sits at 1050, filter drawer 1100, mobile nav 1101.
+   - No external dependencies; tokens fall back to literal values so the
+     file also works without Home/styles-v2.css.
+   ============================================================ */
+
+.hh {
+  display: contents;
+  /* stack geometry (spec §3) */
+  --hh-badge-h: 72px;            /* Trusted Shops clearance */
+  --hh-fab: 56px;
+  --hh-gap: 16px;
+  --hh-right: 24px;
+  --hh-safe: env(safe-area-inset-bottom, 0px);
+  --hh-panel-w: 360px;
+  /* z layers */
+  --hh-z-scrim: 1039;
+  --hh-z: 1040;
+  /* motion */
+  --hh-ease: cubic-bezier(.2, .8, .2, 1);
+  /* colour tokens with fallbacks */
+  --hh-teal: var(--teal, #015253);
+  --hh-teal-600: var(--teal-600, #014A4B);
+  --hh-teal-700: var(--teal-700, #013E3E);
+  --hh-teal-dark: var(--teal-dark, #01292A);
+  --hh-teal-100: var(--teal-100, #E6EEEE);
+  --hh-teal-glow: var(--teal-glow, #7CC6B9);
+  --hh-rot: var(--rot, #D42924);
+  --hh-schwarz: var(--schwarz, #1A171B);
+  --hh-ink: var(--ink, #0E1414);
+  --hh-ink-2: var(--ink-2, #5A6565);
+  --hh-muted: var(--text-muted, #6A6A6A);
+  --hh-paper: var(--paper-white, #F5F6FA);
+  --hh-graphite-300: var(--graphite-300, #DADADA);
+  --hh-border: var(--border, rgba(1, 82, 83, .1));
+  --hh-shadow-md: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, .08));
+  --hh-shadow-lg: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, .12));
+  --hh-shadow-xl: var(--shadow-xl, 0 24px 64px rgba(0, 0, 0, .18));
+  --hh-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.hh.is-hidden { display: none; }
+
+/* Explicit `hidden` support — these parts have their own display values */
+.hh [hidden] { display: none !important; }
+
+/* ------------------------------------------------------------
+   Launcher
+   ------------------------------------------------------------ */
+.hh-fab {
+  position: fixed;
+  right: var(--hh-right);
+  bottom: calc(var(--hh-badge-h) + var(--hh-safe));
+  z-index: var(--hh-z);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--hh-fab);
+  min-width: var(--hh-fab);
+  margin: 0;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--r-pill, 9999px);
+  background: var(--hh-teal);
+  color: #fff;
+  font: 600 15px/1 var(--hh-font);
+  letter-spacing: .01em;
+  cursor: pointer;
+  box-shadow: var(--hh-shadow-lg), inset 0 1px 0 rgba(255, 255, 255, .12);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  opacity: 0;                      /* appears after DOMContentLoaded + 400 ms */
+  pointer-events: none;
+  transition: background-color 150ms ease, box-shadow 150ms ease, transform 120ms var(--hh-ease);
+}
+.hh.is-ready .hh-fab {
+  opacity: 1;
+  pointer-events: auto;
+  animation: hh-fab-in 320ms var(--hh-ease);
+}
+.hh-fab:hover { background: var(--hh-teal-600); box-shadow: var(--hh-shadow-xl), inset 0 1px 0 rgba(255, 255, 255, .12); transform: translateY(-1px); }
+.hh-fab:active { background: var(--hh-teal-700); transform: scale(.97); }
+.hh-fab[aria-expanded="true"] { background: var(--hh-teal-dark); }
+.hh-fab:focus { outline: none; }
+.hh-fab:focus-visible { box-shadow: var(--hh-shadow-lg), 0 0 0 2px #fff, 0 0 0 5px rgba(1, 82, 83, .35); }
+/* launcher returning after the chat closes: short fade instead of the 320 ms rise (HH-11) */
+.hh.is-chat-returning .hh-fab { animation: hh-fade-in 150ms ease; }
+
+.hh-fab__icon { width: 24px; height: 24px; flex: 0 0 auto; overflow: visible; }
+.hh-fab__icon path { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.hh-fab__icon g {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 200ms var(--hh-ease), transform 200ms var(--hh-ease);
+}
+.hh-fab__icon-close { opacity: 0; transform: rotate(-90deg); }
+.hh-fab[aria-expanded="true"] .hh-fab__icon-open { opacity: 0; transform: rotate(90deg); }
+.hh-fab[aria-expanded="true"] .hh-fab__icon-close { opacity: 1; transform: rotate(0deg); }
+
+.hh-fab__label { white-space: nowrap; }
+
+.hh-fab__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--hh-rot);
+  color: #fff;
+  font: 700 11px/18px var(--hh-font);
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* ------------------------------------------------------------
+   Scroll-to-top (replaces #nfity-scroll)
+   ------------------------------------------------------------ */
+.hh-top {
+  position: fixed;
+  right: calc(var(--hh-right) + 8px);
+  bottom: calc(var(--hh-badge-h) + var(--hh-fab) + var(--hh-gap) + var(--hh-safe));
+  z-index: var(--hh-z);
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--hh-graphite-300);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--hh-teal);
+  cursor: pointer;
+  box-shadow: var(--hh-shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 150ms ease, transform 150ms var(--hh-ease), border-color 150ms ease, visibility 0s linear 150ms;
+}
+.hh-top.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 200ms ease, transform 200ms var(--hh-ease), border-color 150ms ease, visibility 0s;
+}
+.hh-top svg { width: 20px; height: 20px; }
+.hh-top svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hh-top:hover { border-color: var(--hh-teal); }
+.hh-top:focus { outline: none; }
+.hh-top:focus-visible { box-shadow: var(--hh-shadow-md), 0 0 0 2px #fff, 0 0 0 5px rgba(1, 82, 83, .35); }
+.hh.is-open .hh-top,
+.hh.is-chat-open .hh-top { display: none; }
+
+/* Chat open → the Botpress window owns the corner */
+.hh.is-chat-open .hh-fab,
+.hh.is-chat-open .hh-nudge { display: none; }
+/* custom Juna window (data-chat="custom"): launcher fades 150 ms while the window rises (research/13 §4) */
+.hh.is-chat-opening .hh-fab { opacity: 0; pointer-events: none; animation: none; transition: opacity 150ms ease; }
+.hh.is-chat-opening .hh-top,
+.hh.is-chat-opening .hh-nudge { display: none; }
+
+/* ------------------------------------------------------------
+   Scrim (mobile only; stays display:none on ≥768 via `hidden`)
+   ------------------------------------------------------------ */
+.hh-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--hh-z-scrim);
+  background: rgba(0, 0, 0, .45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: hh-fade-in 200ms ease;
+}
+.hh.is-closing .hh-scrim { animation: hh-fade-out 150ms ease forwards; }
+
+/* ------------------------------------------------------------
+   Panel (anchored card ≥768, bottom sheet <768)
+   ------------------------------------------------------------ */
+.hh-panel {
+  position: fixed;
+  right: var(--hh-right);
+  bottom: calc(var(--hh-badge-h) + var(--hh-fab) + 12px);
+  z-index: var(--hh-z);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: var(--hh-panel-w);
+  max-width: calc(100vw - 2 * var(--hh-right));
+  max-height: calc(100vh - 164px);
+  overflow: hidden;                 /* header + close stay put; .hh-panel__scroll scrolls (HH-03) */
+  margin: 0;
+  padding: 0;
+  border-radius: var(--r-xl, 12px);
+  background: #fff;
+  color: var(--hh-ink);
+  font-family: var(--hh-font);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 24px 64px -16px rgba(1, 40, 40, .35);
+  transform-origin: bottom right;
+  animation: hh-panel-in 220ms var(--hh-ease);
+}
+.hh.is-closing .hh-panel { animation: hh-panel-out 150ms ease-in forwards; }
+
+.hh-panel__handle { display: none; }
+
+/* Scroll area: tiles + rows + footer (header and close button never scroll away) */
+.hh-panel__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Header — title only. The close button (last in DOM) anchors to .hh-panel */
+.hh-head { flex: 0 0 auto; padding: 18px 20px 6px; }
+.hh-head__title {
+  margin: 0;
+  padding-right: 36px;              /* reserve for the close button */
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  color: var(--hh-schwarz);
+}
+.hh-head__title:focus { outline: none; }
+.hh-head__title:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: 4px; border-radius: 2px; }
+.hh-head__close {
+  position: absolute;             /* last in DOM (Tab order), visually top-right of the panel */
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #7A7A82;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.hh-head__close svg { width: 14px; height: 14px; }
+.hh-head__close svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.hh-head__close:hover { background: var(--hh-paper); color: var(--hh-ink); }
+.hh-head__close:focus { outline: none; }
+.hh-head__close:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: 2px; }
+
+/* Rows — one line each: icon · label · meta · chevron. The two primary
+   rows (chat, hotline) get a filled teal icon; everything else stays quiet. */
+.hh-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 12px 6px;
+}
+.hh-list__sep { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--hh-border); }
+.hh-row {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.hh-row:hover { background: var(--hh-paper); }
+.hh-row:focus { outline: none; }
+.hh-row:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: -2px; }
+.hh-row__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--hh-teal-100);
+  color: var(--hh-teal);
+}
+.hh-row--primary .hh-row__icon { background: var(--hh-teal); color: #fff; }
+.hh-row__icon svg { width: 18px; height: 18px; }
+.hh-row__icon path, .hh-row__icon circle, .hh-row__icon rect { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.hh-row__label {
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--hh-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 150ms ease;
+}
+.hh-row__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--hh-muted);
+  white-space: nowrap;
+}
+.hh-tile--chat .hh-row__meta {          /* "KI · sofort" pill — the AI disclosure at first glance */
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--hh-teal-100);
+  color: var(--hh-teal);
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.hh-row__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hh-teal-glow);
+  box-shadow: 0 0 0 2px rgba(124, 198, 185, .25);
+}
+.hh.is-closed-hours .hh-row__dot { background: var(--hh-graphite-300); box-shadow: none; }
+/* Open hours: show the number. Closed: show "ab Mo 09:00 Uhr" instead (the
+   hidden one stays in the accessibility tree). Static HTML ships no live
+   status (SEO F3); the sr-only [data-hh-status] carries the hours text. */
+.hh-sr,
+.hh:not(.is-closed-hours) .hh-row__state,
+.hh.is-closed-hours .hh-row__num {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.hh-row__chevron { width: 16px; height: 16px; color: #A1A1A1; transition: transform 150ms var(--hh-ease), color 150ms ease; }
+.hh-row__chevron path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hh-row:hover .hh-row__chevron { transform: translateX(2px); color: var(--hh-teal); }
+
+/* Chat row loading / error */
+.hh-row__spinner {
+  display: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, .35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: hh-spin 800ms linear infinite;
+}
+.hh.is-loading .hh-tile--chat .hh-row__icon > svg { display: none; }
+.hh.is-loading .hh-tile--chat .hh-row__spinner { display: block; }
+.hh.is-loading .hh-tile--chat { cursor: progress; }
+.hh.is-chat-error .hh-tile--chat { cursor: not-allowed; }
+.hh.is-chat-error .hh-tile--chat .hh-row__icon { background: var(--hh-graphite-300); }
+.hh.is-chat-error .hh-tile--chat .hh-row__meta { background: transparent; color: var(--hh-muted); font-weight: 500; }
+
+/* Footer — quiet: links first, the one-line AI disclosure second */
+.hh-foot {
+  margin-top: auto;
+  padding: 10px 20px 12px;
+  border-top: 1px solid var(--hh-border);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hh-muted);
+}
+.hh-foot__links { display: flex; gap: 16px; margin: 0 0 3px; }
+.hh-foot__links a { color: var(--hh-ink-2); font-weight: 500; text-decoration: none; }
+.hh-foot__links a:hover { color: var(--hh-teal); }
+.hh-foot__links a:focus { outline: none; }
+.hh-foot__links a:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: 2px; border-radius: 2px; }
+.hh-foot__disclosure { margin: 0; }
+
+/* Stagger (desktop only) */
+.hh.is-open .hh-list > li { animation: hh-rise 180ms var(--hh-ease) both; }
+.hh.is-open .hh-list > li:nth-child(1) { animation-delay: 40ms; }
+.hh.is-open .hh-list > li:nth-child(2) { animation-delay: 70ms; }
+.hh.is-open .hh-list > li:nth-child(3) { animation-delay: 100ms; }
+.hh.is-open .hh-list > li:nth-child(4) { animation-delay: 130ms; }
+.hh.is-open .hh-list > li:nth-child(5) { animation-delay: 160ms; }
+.hh.is-open .hh-list > li:nth-child(6) { animation-delay: 190ms; }
+.hh.is-closing .hh-list > li { animation: none; }
+
+/* ------------------------------------------------------------
+   Nudge (default off; desktop ≥1024 only)
+   ------------------------------------------------------------ */
+.hh-nudge {
+  position: fixed;
+  right: var(--hh-right);
+  bottom: calc(var(--hh-badge-h) + var(--hh-fab) + 12px + var(--hh-safe));
+  z-index: var(--hh-z);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 300px;
+  padding: 12px 44px 12px 14px;
+  border-radius: var(--r-xl, 12px);
+  background: #fff;
+  color: var(--hh-ink);
+  font: 400 13px/1.4 var(--hh-font);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 16px 40px -12px rgba(1, 40, 40, .35);
+  animation: hh-panel-in 220ms var(--hh-ease);
+}
+.hh-nudge__close {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #7A7A82;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.hh-nudge__close svg { width: 12px; height: 12px; }
+.hh-nudge__close svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.hh-nudge__close:hover { background: #f4f6f6; color: var(--hh-ink); }
+.hh-nudge__close:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: 2px; }
+@media (max-width: 1023px) { .hh-nudge { display: none !important; } }
+
+/* ------------------------------------------------------------
+   Keyframes
+   ------------------------------------------------------------ */
+@keyframes hh-fab-in   { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes hh-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hh-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes hh-panel-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes hh-panel-out{ from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px); } }
+@keyframes hh-rise     { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes hh-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes hh-sheet-out{ from { transform: none; } to { transform: translateY(100%); } }
+@keyframes hh-spin     { to { transform: rotate(360deg); } }
+
+/* ------------------------------------------------------------
+   Mobile (<768): circle launcher, bottom sheet, scrim, handle
+   ------------------------------------------------------------ */
+@media (max-width: 767px), (max-height: 500px) {
+  .hh { --hh-right: 16px; }
+  .hh-fab { width: var(--hh-fab); padding: 0; justify-content: center; }
+  .hh-fab__label { display: none; }
+  .hh-top { display: none !important; }
+
+  .hh-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85vh;
+    max-height: 85dvh;
+    padding-bottom: calc(16px + var(--hh-safe));
+    border-radius: 20px 20px 0 0;
+    transform-origin: bottom center;
+    animation: hh-sheet-in 280ms var(--hh-ease);
+  }
+  .hh.is-closing .hh-panel { animation: hh-sheet-out 220ms ease-in forwards; }
+  /* swipe-to-close: JS sets --hh-drag on the panel while dragging; on release
+     `is-settling` animates back to 0 (sub-threshold) or on to 100% (close) —
+     the exit continues from the current offset, no jump (HH-07) */
+  .hh-panel.is-dragging,
+  .hh.is-closing .hh-panel.is-dragging { animation: none; transform: translateY(var(--hh-drag, 0px)); }
+  .hh-panel.is-settling { transition: transform 200ms var(--hh-ease); }
+
+  .hh-panel__handle {
+    display: block;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 4px;
+    margin: 8px auto 0;
+    border-radius: 2px;
+    background: var(--hh-graphite-300);
+  }
+  .hh-head { padding-top: 12px; }
+  .hh-head__close { top: 12px; }
+  .hh-row { min-height: 56px; }
+  .hh-foot { border-radius: 0; }
+
+  /* no stagger on the sheet */
+  .hh.is-open .hh-list > li { animation: none; }
+}
+
+/* ------------------------------------------------------------
+   Reduced motion: opacity only, 120 ms, no stagger, icon swaps
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .hh.is-ready .hh-fab, .hh.is-chat-returning .hh-fab { animation: hh-fade-in 120ms ease; }
+  .hh-panel.is-settling { transition-duration: 0s; }
+  .hh-fab, .hh-fab:hover, .hh-fab:active { transform: none; transition-duration: 0s; }
+  .hh-fab__icon g { transition: opacity 0s; transform: none !important; }
+  .hh-top, .hh-top.is-visible { transform: none; transition: opacity 120ms ease, visibility 0s; }
+  .hh-panel, .hh-scrim, .hh-nudge { animation: hh-fade-in 120ms ease; }
+  .hh.is-closing .hh-panel, .hh.is-closing .hh-scrim { animation: hh-fade-out 120ms ease forwards; }
+  .hh.is-open .hh-list > li { animation: none; }
+  .hh-row__chevron, .hh-row:hover .hh-row__chevron { transform: none; transition: none; }
+  .hh-row__spinner { animation-duration: 1.6s; }
+}
+
+/* ------------------------------------------------------------
+   Botpress Webchat v3.7 — runtime-verified structure (see
+   research/04-implementation-notes.md): ONE open shadow root on the
+   light-DOM host `.bpChatContainer > div#fab-root` contains the chat
+   window (#webchat-root), the message preview AND the default FAB
+   (.bpFabWrapper > #fab-root.bpFab). Hiding the host would therefore
+   hide the chat window too, so the FAB is hidden by a <style> that
+   help-hub.js appends inside the shadow root. Until that style is in
+   place the host is kept invisible and inert (guards the ~100 ms
+   between init() and `webchat:initialized`).
+   ------------------------------------------------------------ */
+.bpChatContainer { opacity: 0; pointer-events: none; }
+html.hh-bp-styled .bpChatContainer { opacity: 1; pointer-events: auto; }
+
+/* ============================================================
+   Shared Metzler tokens (--mz-*) — defined ONCE here, consumed by
+   chat/chat-window.css with fallbacks (research/17 §2).
+   ============================================================ */
+.hh, .cw {
+  --mz-radius: 16px;  --mz-card-r: 12px;  --mz-head-h: 56px;  --mz-gutter: 20px;
+  --mz-shadow: 0 0 0 1px rgba(1,82,83,.08), 0 1px 2px rgba(0,0,0,.04), 0 24px 64px -16px rgba(1,40,40,.35);
+  --mz-ring: 0 0 0 1px rgba(1,82,83,.12);
+  --mz-hair: rgba(1,82,83,.10);  --mz-hair-strong: rgba(1,82,83,.16);
+  --mz-led: #7CC6B9;  --mz-led-halo: 0 0 0 3px rgba(124,198,185,.25);  --mz-led-off: #A1A1A1;
+  --mz-ease: cubic-bezier(.2,.8,.2,1);
+  --mz-focus: 0 0 0 2px #fff, 0 0 0 5px rgba(1,82,83,.35);
+}
+@media (max-width: 767px), (max-height: 500px) { .cw { --mz-gutter: 16px; } }
+
+/* ============================================================
+   Help Hub v3 (research/17-hub-v3-spec.md) — scoped to .hh--v3 so the
+   v2 markup on briefkasten.html keeps rendering exactly as before.
+   ============================================================ */
+.hh--v3 .hh-panel {
+  width: 400px;
+  max-height: calc(100vh - 164px);
+  max-height: calc(100dvh - 164px);
+  border-radius: var(--mz-radius);
+  box-shadow: var(--mz-shadow);
+}
+.hh--v3 .hh-head {
+  display: flex;
+  align-items: center;
+  height: var(--mz-head-h);
+  padding: 0 20px;
+  border-bottom: 1px solid var(--mz-hair);
+}
+.hh--v3 .hh-head__title {
+  padding-right: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  color: var(--hh-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hh--v3 .hh-head__close { display: none; }                   /* desktop: the launcher (chevron) is the one close control */
+
+/* Ask block — the one hero */
+.hh-ask { padding: 16px 20px; }
+.hh-ask__head { display: flex; align-items: center; gap: 8px; min-height: 20px; }
+.hh-ask__light { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--mz-led); box-shadow: var(--mz-led-halo); }
+.hh-ask__label { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--hh-ink); white-space: nowrap; cursor: text; }   /* one line: "Juna" + KI badge; full label text is sr-only */
+.hh-ask__ki {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 4px;
+  background: var(--hh-teal-100); color: var(--hh-teal); font-size: 11px; font-weight: 700; letter-spacing: .02em;
+}
+.hh-ask__resume {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; margin: 0 -8px 0 auto; padding: 0 8px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--hh-teal);
+  font: 600 13px/1 var(--hh-font); cursor: pointer; white-space: nowrap;
+  transition: background-color 120ms ease;
+}
+.hh-ask__resume::before { content: ""; position: absolute; inset: -8px 0; }
+.hh-ask__resume:hover { background: var(--hh-teal-100); }
+.hh-ask__resume:focus { outline: none; }
+.hh-ask__resume:focus-visible { box-shadow: var(--mz-focus); }
+.hh-ask__unread {
+  box-sizing: border-box; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--hh-rot); color: #fff; font: 700 11px/18px var(--hh-font); text-align: center;
+}
+.hh-ask__form { position: relative; margin: 8px 0 0; }
+.hh-ask__field {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin: 0;
+  padding: 0 52px 0 14px;
+  border: 1px solid var(--mz-hair-strong);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--hh-ink);
+  font: 400 15px/1.4 var(--hh-font);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.hh-ask__field:focus { border-color: var(--hh-teal); box-shadow: 0 0 0 3px rgba(1, 82, 83, .12); }
+.hh-ask__field::placeholder { color: #8A8F8F; opacity: 1; }
+.hh-ask__field:disabled { background: var(--hh-paper); color: var(--hh-muted); cursor: not-allowed; }
+.hh-ask__send {
+  position: absolute; top: 6px; right: 6px;
+  display: grid; place-items: center;
+  width: 36px; height: 36px; margin: 0; padding: 0;
+  border: 0; border-radius: 50%;
+  background: var(--hh-teal-100); color: var(--hh-teal);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms var(--mz-ease);
+}
+.hh-ask__send::before { content: ""; position: absolute; inset: -4px; }
+.hh-ask__send:hover { background: #D5E3E3; }
+.hh-ask__send:active { transform: scale(.96); }
+.hh-ask__send:focus { outline: none; }
+.hh-ask__send:focus-visible { box-shadow: var(--mz-focus); }
+.hh-ask__send svg { width: 18px; height: 18px; }
+.hh-ask__send svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hh-ask__i-send { display: none; }
+.hh-ask.has-text .hh-ask__send { background: var(--hh-teal); color: #fff; }
+.hh-ask.has-text .hh-ask__send:hover { background: var(--hh-teal-600); }
+.hh-ask.has-text .hh-ask__i-open { display: none; }
+.hh-ask.has-text .hh-ask__i-send { display: block; }
+.hh-ask__send .hh-row__spinner { border-color: rgba(1, 82, 83, .25); border-top-color: var(--hh-teal); }
+.hh.is-loading .hh-ask__send svg { display: none; }
+.hh.is-loading .hh-ask__send .hh-row__spinner { display: block; }
+.hh.is-loading .hh-ask__send { cursor: progress; }
+.hh-ask.has-text .hh-ask__send .hh-row__spinner { border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
+/* KI badge = button that reveals the AI/privacy note (the visible legal line was removed on owner request) */
+.hh-head--juna { position: relative; }
+button.hh-ask__ki { border: 0; font-family: var(--hh-font); cursor: pointer; transition: background-color 120ms ease; }
+button.hh-ask__ki::before { content: ""; position: absolute; inset: -13px -10px; }   /* 44 px touch target */
+button.hh-ask__ki { position: relative; }
+button.hh-ask__ki:hover, button.hh-ask__ki[aria-expanded="true"] { background: #d5e4e4; }
+button.hh-ask__ki:focus { outline: none; }
+button.hh-ask__ki:focus-visible { box-shadow: var(--mz-focus); }
+.hh-ask__legal {
+  position: absolute; z-index: 3; top: 46px; left: 20px; right: 20px;   /* anchored under the 'Juna · KI' identity line */
+  max-width: 300px; margin: 0; padding: 10px 12px;
+  border-radius: 10px; background: #fff;
+  box-shadow: 0 0 0 1px rgba(1, 82, 83, .10), 0 8px 24px rgba(0, 0, 0, .12);
+  font-size: 13px; line-height: 1.45; color: var(--hh-ink); white-space: normal;
+}
+.hh-ask__legal[hidden] { display: none; }
+.hh-ask__legal a { position: relative; color: var(--hh-teal); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.hh-ask__legal a::before { content: ""; position: absolute; inset: -16px -4px; }
+.hh-ask__legal a:hover { color: var(--hh-teal-600); }
+.hh-ask__legal a:focus { outline: none; }
+.hh-ask__legal a:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: 2px; border-radius: 2px; }
+/* chat unavailable (data-chat="off" / load error) */
+.hh.is-chat-error .hh-ask__light { background: var(--mz-led-off); box-shadow: none; }
+.hh.is-chat-error .hh-ask__send { background: var(--hh-paper); color: #A1A1A1; cursor: not-allowed; }
+
+/* Rows — five plain rows: 20-px line icon, label, meta. No tiles, no chevrons. */
+.hh--v3 .hh-list { padding: 6px 12px; border-top: 1px solid var(--mz-hair); }
+.hh--v3 .hh-row {
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 14px;
+  min-height: 48px;
+  padding: 0 8px;
+}
+.hh--v3 .hh-row__icon { width: 20px; height: 20px; border-radius: 0; background: none; color: var(--hh-teal); }
+.hh--v3 .hh-row__icon svg { width: 20px; height: 20px; }
+.hh--v3 .hh-row__icon path, .hh--v3 .hh-row__icon circle, .hh--v3 .hh-row__icon rect { stroke-width: 1.6; }
+.hh--v3 .hh-row__meta { font-size: 13px; font-weight: 500; color: var(--hh-ink-2); }
+.hh--v3 .hh-row__dot { width: 8px; height: 8px; background: var(--mz-led); box-shadow: var(--mz-led-halo); }
+.hh--v3.is-closed-hours .hh-row__dot { background: var(--mz-led-off); box-shadow: none; }
+.hh--v3 .hh-row__chevron { display: none; }
+
+/* Footer — owner fix: an anchored bottom bar (not a floating text line). Full width, flush to the
+   panel's bottom edge (inherits its radius via overflow:hidden), paper background, two equal
+   links with 18-px line icons, 48 px tall, separated by a vertical hairline. */
+.hh--v3 .hh-list { padding-bottom: 8px; }
+.hh--v3 .hh-foot { margin-top: auto; padding: 0; border-top: 1px solid var(--mz-hair); background: var(--hh-paper); }
+.hh--v3 .hh-foot__links { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 0; }
+.hh--v3 .hh-foot__link {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 12px;
+  color: var(--hh-ink); font-size: 14px; font-weight: 500; line-height: 1.3; text-decoration: none; white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.hh--v3 .hh-foot__link + .hh-foot__link { border-left: 1px solid var(--mz-hair); }
+.hh--v3 .hh-foot__link svg { width: 18px; height: 18px; color: var(--hh-teal); flex: 0 0 auto; }
+.hh--v3 .hh-foot__link svg path, .hh--v3 .hh-foot__link svg rect, .hh--v3 .hh-foot__link svg circle { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.hh--v3 .hh-foot__link:hover { color: var(--hh-teal); background: #ECEEF3; }
+.hh--v3 .hh-foot__link:focus { outline: none; }
+.hh--v3 .hh-foot__link:focus-visible { box-shadow: inset 0 0 0 2px var(--hh-teal); }
+
+/* Launcher open (desktop): the "Hilfe" pill morphs into the 56-px circle with the chevron, and back.
+   Owner 2026-11-24: "make the collapse/expand animation smooth" — it used to snap (fixed width + display:none).
+   Now nothing jumps: the label's width (measured by help-hub.js into --hh-fab-label-w, CSS cannot animate to
+   `auto`), its opacity, the gap and the side padding transition together on one curve. The pill is anchored right,
+   so it folds into the corner and the icon glides to the centre. Collapse: the text fades out first, then folds;
+   expand: the pill opens first and the text fades in as it lands. Collapsed width = 2 × padding + 24 px icon = 56 px. */
+@media (min-width: 768px) and (min-height: 501px) {
+  .hh--v3 .hh-fab {
+    transition: background-color 300ms ease, box-shadow 150ms ease, transform 120ms var(--hh-ease),
+                padding 300ms var(--hh-ease), gap 300ms var(--hh-ease);
+  }
+  .hh--v3 .hh-fab__label {
+    display: inline-block;
+    overflow: hidden;
+    max-width: var(--hh-fab-label-w, 5em);
+    line-height: 1.3;                                          /* room for the glyphs inside the clip */
+    opacity: 1;
+    transition: max-width 300ms var(--hh-ease), opacity 180ms ease 120ms;
+  }
+  .hh--v3 .hh-fab[aria-expanded="true"] { padding: 0 calc((var(--hh-fab) - 24px) / 2); gap: 0; }
+  .hh--v3 .hh-fab[aria-expanded="true"] .hh-fab__label {
+    max-width: 0;
+    opacity: 0;
+    transition: max-width 300ms var(--hh-ease), opacity 100ms ease;
+  }
+  .hh--v3 .hh-fab__icon g { transition-duration: 300ms; }
+}
+@media (min-width: 768px) and (min-height: 501px) and (prefers-reduced-motion: reduce) {
+  .hh--v3 .hh-fab,
+  .hh--v3 .hh-fab__label,
+  .hh--v3 .hh-fab[aria-expanded="true"] .hh-fab__label { transition: none; }
+}
+
+/* Handover hub to Juna window: one motion, no close-then-open gap (research/17 §6) */
+.hh.is-handover.is-closing .hh-panel { animation: hh-fade-out 180ms ease forwards; }
+.hh.is-handover.is-closing .hh-head,
+.hh.is-handover.is-closing .hh-panel__scroll { animation: hh-fade-out 120ms ease forwards; }
+.hh.is-handover.is-closing .hh-scrim { animation: hh-fade-out 180ms ease forwards; }
+
+/* Mobile sheet */
+@media (max-width: 767px), (max-height: 500px) {
+  .hh--v3 .hh-panel { width: 100%; max-width: none; max-height: 85vh; max-height: 85dvh; border-radius: var(--mz-radius) var(--mz-radius) 0 0; }
+  .hh--v3 .hh-head { padding: 0 56px 0 16px; }
+  .hh--v3 .hh-head__close { display: inline-flex; top: 24px; right: 12px; }
+  .hh--v3 .hh-head__close::before { content: ""; position: absolute; inset: -6px; }
+  .hh--v3 .hh-row { min-height: 52px; }
+  .hh--v3 .hh-list { padding: 6px 8px; }
+  .hh-ask { padding: 16px; }
+  .hh--v3 .hh-panel { padding-bottom: 0; }                       /* the bar sits flush; it carries the safe area */
+  .hh--v3 .hh-foot { padding: 0 0 var(--hh-safe); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hh.is-handover.is-closing .hh-panel,
+  .hh.is-handover.is-closing .hh-head,
+  .hh.is-handover.is-closing .hh-panel__scroll,
+  .hh.is-handover.is-closing .hh-scrim { animation: hh-fade-out 120ms ease forwards; }
+  .hh-ask__send, .hh-ask__send:active { transition: none; transform: none; }
+}
+
+/* ------------------------------------------------------------
+   Owner feedback 2026-10-14 (2 rounds): the list must read as ONE connected
+   group — but an outlined box was "too much". Grouping by TONE, not lines:
+   the panel has two zones. White top = Juna (the main action); everything
+   below sits on one soft paper "service zone" that runs straight into the
+   footer bar, so list + footer become one grounded block. Rows get short
+   inset dividers that start at the label (not the icon), hover lifts a row
+   to white. No outer border anywhere.
+   ------------------------------------------------------------ */
+.hh--v3 .hh-list {
+  flex: 1 0 auto;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-top: 1px solid var(--mz-hair);
+  border-radius: 0;
+  background: var(--hh-paper);
+}
+.hh--v3 .hh-list > li { position: relative; }
+.hh--v3 .hh-list > li + li::before {             /* inset divider, aligned with the label column */
+  content: "";
+  position: absolute; top: 0; left: 50px; right: 12px;
+  height: 1px;
+  background: rgba(1, 82, 83, .08);
+  transition: opacity 120ms ease;
+}
+.hh--v3 .hh-list > li:hover::before,
+.hh--v3 .hh-list > li:hover + li::before,
+.hh--v3 .hh-list > li:focus-within::before,
+.hh--v3 .hh-list > li:focus-within + li::before { opacity: 0; }   /* the lifted row needs no lines */
+.hh--v3 .hh-row {
+  grid-template-columns: 20px minmax(0, 1fr) auto 12px;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 12px 0 14px;
+  border-radius: 10px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.hh--v3 .hh-row:hover {
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(1, 40, 40, .06), 0 0 0 1px rgba(1, 82, 83, .06);
+}
+.hh--v3 .hh-row:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: -2px; border-radius: 10px; background-color: #fff; }
+.hh--v3 .hh-row::after {                         /* quiet chevron in the last column */
+  content: "";
+  grid-column: 4;
+  justify-self: end;
+  width: 6px; height: 6px;
+  border-right: 1.5px solid #B4B9BA;
+  border-bottom: 1.5px solid #B4B9BA;
+  transform: rotate(-45deg);
+  transition: transform 150ms var(--mz-ease), border-color 150ms ease;
+}
+.hh--v3 .hh-row:hover::after { border-color: var(--hh-teal); transform: translateX(2px) rotate(-45deg); }
+/* the footer bar continues the same zone: same paper tone, only a hairline between */
+.hh--v3 .hh-foot { border-top: 1px solid rgba(1, 82, 83, .08); }
+@media (max-width: 767px), (max-height: 500px) { .hh--v3 .hh-row { min-height: 56px; } }
+@media (prefers-reduced-motion: reduce) { .hh--v3 .hh-row::after, .hh--v3 .hh-row:hover::after { transition: none; transform: rotate(-45deg); } }
+
+/* ------------------------------------------------------------
+   Title section v4 (owner 2026-10-14: "enhance the title section creatively").
+   No separate title bar any more. Juna introduces the panel:
+     ● Juna  KI ................. Gespräch fortsetzen     ← identity line (eyebrow)
+     Fragen zu Türsprechanlagen?                          ← the title is Juna's question
+     [ Frage an Juna …                              ↗ ]   ← and leads straight into the field
+   One fewer tier, no hairline under the title; a very faint teal "light"
+   at the top marks the white zone as Juna's space (the status-light idea).
+   ------------------------------------------------------------ */
+.hh--v3 .hh-panel {
+  background-color: #fff;
+  background-image: radial-gradient(120% 140px at 0% 0%, rgba(124, 198, 185, .16), rgba(124, 198, 185, 0) 70%),
+                    linear-gradient(180deg, rgba(1, 82, 83, .035), rgba(1, 82, 83, 0) 150px);
+  background-repeat: no-repeat;
+}
+.hh--v3 .hh-head.hh-head--juna {
+  display: block;
+  height: auto;
+  padding: 18px 20px 0;
+  border-bottom: 0;
+  background: transparent;
+}
+.hh--v3 .hh-head--juna .hh-ask__head { min-height: 24px; }
+.hh--v3 .hh-head--juna .hh-ask__label { font-size: 13px; font-weight: 600; color: var(--hh-ink-2); letter-spacing: .01em; }
+.hh--v3 .hh-head--juna .hh-head__title {
+  margin: 8px 0 0;
+  padding-right: 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+  color: var(--hh-schwarz);
+  white-space: normal;
+  overflow: visible;
+  text-wrap: balance;
+}
+.hh--v3 .hh-ask { padding: 14px 20px 20px; background: transparent; }
+@media (max-width: 767px), (max-height: 500px) {
+  .hh--v3 .hh-head.hh-head--juna { padding: 14px 16px 0; }
+  .hh--v3 .hh-head--juna .hh-ask__head { padding-right: 40px; }           /* room for the sheet's × */
+  .hh--v3 .hh-head__close { top: 22px; right: 10px; }
+  .hh--v3 .hh-ask { padding: 14px 16px 18px; }
+  .hh--v3 .hh-ask__legal { left: 16px; right: 16px; }
+}
+
+/* ------------------------------------------------------------
+   Row motion = the Termin modal's motion language (owner 2026-10-15:
+   "adjust the animation of each tab based on the Termin modal").
+   Source: plp.css .row (m-slide-in-right .5s ease, 80 ms stagger;
+   hover: teal wash, 3 px accent bar scaling from the centre, body +4 px,
+   label teal, icon ×1.06, arrow +3 px; curve cubic-bezier(.2,.8,.2,1) .45s).
+   Adapted to the borderless rows of the tonal service zone.
+   ------------------------------------------------------------ */
+@keyframes hh-row-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+
+/* entrance — same slide, duration and 80 ms stride as the modal (starts once the panel has landed) */
+.hh--v3.is-open .hh-list > li { animation: hh-row-in .5s ease both; }
+.hh--v3.is-open .hh-list > li:nth-child(1) { animation-delay: .16s; }
+.hh--v3.is-open .hh-list > li:nth-child(2) { animation-delay: .24s; }
+.hh--v3.is-open .hh-list > li:nth-child(3) { animation-delay: .32s; }
+.hh--v3.is-open .hh-list > li:nth-child(4) { animation-delay: .40s; }
+.hh--v3.is-open .hh-list > li:nth-child(5) { animation-delay: .48s; }
+.hh--v3.is-closing .hh-list > li { animation: none; }
+
+/* hover — the modal's choreography */
+.hh--v3 .hh-row {
+  position: relative;
+  isolation: isolate;
+  transition: background-color .45s cubic-bezier(.2,.8,.2,1), box-shadow .45s cubic-bezier(.2,.8,.2,1),
+              transform .45s cubic-bezier(.2,.8,.2,1);
+}
+.hh--v3 .hh-row::before {                          /* teal wash (absolute → not a grid item) */
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(1,82,83,0) 0%, rgba(1,82,83,.04) 45%, rgba(124,198,185,.08) 100%);
+  opacity: 0;
+  transition: opacity .5s cubic-bezier(.2,.8,.2,1);
+}
+.hh--v3 .hh-row__icon,
+.hh--v3 .hh-row__label { transition: transform .45s cubic-bezier(.2,.8,.2,1), color .25s ease; }
+.hh--v3 .hh-row__icon { transition-duration: .35s; }
+.hh--v3 .hh-row::after { transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .25s ease; }
+
+.hh--v3 .hh-row:hover { transform: translateY(-1px); }
+.hh--v3 .hh-row:hover::before { opacity: 1; }
+.hh--v3 .hh-row:hover .hh-row__label { transform: translateX(4px); color: var(--hh-teal); }
+.hh--v3 .hh-row:hover .hh-row__icon { transform: scale(1.06); }
+.hh--v3 .hh-row:hover::after { border-color: var(--hh-teal); transform: translateX(3px) rotate(-45deg) scale(1.1); }
+
+
+/* the modal animates on phones too — re-enable the entrance on the sheet */
+@media (max-width: 767px), (max-height: 500px) {
+  .hh--v3.is-open .hh-list > li { animation: hh-row-in .5s ease both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hh--v3.is-open .hh-list > li { animation: hh-fade-in 120ms ease both; animation-delay: 0s !important; }
+  .hh--v3 .hh-row, .hh--v3 .hh-row::before,
+  .hh--v3 .hh-row__icon, .hh--v3 .hh-row__label, .hh--v3 .hh-row::after { transition: none; }
+  .hh--v3 .hh-row:hover, .hh--v3 .hh-row:hover .hh-row__label, .hh--v3 .hh-row:hover .hh-row__icon { transform: none; }
+  .hh--v3 .hh-row:hover::after { transform: rotate(-45deg); }
+}
+
+/* Accent bar v2 (owner 2026-10-15: "the left border of the hover effect is not optimized").
+   Like the Termin modal, the bar is part of the row's own shape: drawn as a background
+   layer of .hh-row, full height, so the row's 10 px radius clips it into the curve.
+   It grows from the centre via background-size and moves with the row's lift. */
+.hh--v3 .hh-row {
+  background-image: linear-gradient(180deg, var(--hh-teal) 0%, var(--mz-led) 100%);
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 3px 0%;
+  transition: background-color .45s cubic-bezier(.2,.8,.2,1), background-size .45s cubic-bezier(.2,.8,.2,1),
+              box-shadow .45s cubic-bezier(.2,.8,.2,1), transform .45s cubic-bezier(.2,.8,.2,1);
+}
+.hh--v3 .hh-row:hover,
+.hh--v3 .hh-row:focus-visible { background-size: 3px 100%; }
+@media (prefers-reduced-motion: reduce) { .hh--v3 .hh-row { transition: none; } }
+
+/* Legal links (owner 2026-10-15: "add AGB and Datenschutz in an appropriate place").
+   Hub: they live in the KI badge's note — the hub's on-demand "about this chat" layer
+   (same place the live Botpress widget keeps AGB + Datenschutz), so the panel keeps
+   one line per choice. Chat window: a legal group at the foot of the ⋯ menu. */
+.hh-ask__legal-links { display: flex; gap: 20px; margin-top: 8px; }
+.hh-ask__legal-links a { font-size: 13px; }
+.hh-ask__legal a::before { inset: -12px -6px; }       /* 44 px tall targets without overlapping each other */
+
+/* Privacy-on-intent (2026-10-15, after the legal check): GDPR Art. 13 wants the privacy notice at the
+   time of collection; the owner wants no resting text line. So the line appears the moment someone
+   types the first character (the actual moment of collection) and stays while there is text. Height animates via grid rows → no jump; text ≥ 12 px / ≥ 4.5:1; link clearly a link. */
+.hh-ask__privacy-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows .25s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+}
+.hh-ask__privacy { min-height: 0; overflow: hidden; margin: 0; font-size: 12px; line-height: 1.45; color: var(--hh-ink-2); }
+.hh-ask__privacy::before { content: ""; display: block; height: 8px; }
+.hh-ask__privacy a { color: var(--hh-teal); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.hh-ask__privacy a:hover { color: var(--hh-teal-600); }
+.hh-ask__privacy a:focus { outline: none; }
+.hh-ask__privacy a:focus-visible { outline: 2px solid var(--hh-teal); outline-offset: 2px; border-radius: 2px; }
+/* trigger = first character typed (desktop auto-focuses the field on open, so focus alone would show it on
+   every open); screen readers get it on focus anyway via aria-describedby. */
+.hh-ask.has-text .hh-ask__privacy-wrap { grid-template-rows: 1fr; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .hh-ask__privacy-wrap { transition: none; } }
+
+/* ------------------------------------------------------------
+   Brand header (owner 2026-10-15: "add the Metzler logo to the hub, remove the extra
+   labels and text"). The header is just the Metzler logo; the "● Juna" label, the
+   question title and "Gespräch fortsetzen" are gone (title is sr-only = dialog name;
+   the placeholder already switches to "Weiter mit Juna …" and opens the running chat).
+   The KI badge moves INTO the field as a leading chip — the AI disclosure stays visible
+   exactly where people type (Art. 50) and still opens the note with Datenschutz · AGB.
+   ------------------------------------------------------------ */
+.hh--v3 .hh-head.hh-head--brand {
+  display: flex; align-items: center;
+  height: auto; min-height: 56px;
+  padding: 18px 20px 4px;
+  border-bottom: 0; background: transparent;
+}
+.hh-brand { display: block; height: 22px; width: auto; }
+.hh--v3 .hh-ask { padding: 12px 20px 20px; }
+.hh--v3 .hh-ask__resume { display: none !important; }
+.hh--v3 .hh-ask__form { margin: 0; }
+.hh--v3 .hh-ask__field { padding-left: 50px; }
+.hh--v3 .hh-ask__form button.hh-ask__ki {
+  position: absolute; z-index: 1; top: 50%; left: 12px; transform: translateY(-50%);
+  height: 22px; padding: 0 7px; border-radius: 6px;
+}
+.hh--v3 .hh-ask__form .hh-ask__legal { top: calc(100% + 8px); left: 0; right: 0; }
+@media (max-width: 767px), (max-height: 500px) {
+  .hh--v3 .hh-head.hh-head--brand { padding: 14px 56px 4px 16px; }
+  .hh--v3 .hh-head__close { top: 29px; }                     /* centred on the logo */
+  .hh--v3 .hh-ask { padding: 12px 16px 18px; }
+  .hh--v3 .hh-ask__form .hh-ask__legal { left: 0; right: 0; }
+}
+
+/* Owner 2026-10-15: "the chat icon must not be hidden". Desktop: the launcher stays in its slot while the Juna
+   window is open, as the round ⌄ (aria-expanded=true → same morph as the open hub); a click minimises the chat.
+   Mobile keeps the full-screen sheet with its own × (a floating button would cover the composer's send button). */
+@media (min-width: 768px) and (min-height: 501px) {
+  .hh--v3.is-chat-open .hh-fab,
+  .hh--v3.is-chat-opening .hh-fab { display: inline-flex; opacity: 1; pointer-events: auto; }
+}
+
+/* ---- Hub to Juna hand-over (research/19): the panel shell stays, its content fades; the carried question leaves
+   the field as the flying plate, so the field's own text is hidden (it is cleared only after the hand-over) ---- */
+.hh.is-handing .hh-head,
+.hh.is-handing .hh-panel__scroll { opacity: 0; transition: opacity 120ms ease; pointer-events: none; }
+.hh-ask__field.is-carried { color: transparent !important; caret-color: transparent; }
+.hh-ask__field.is-carried::placeholder { color: transparent; }
+
+/* ---- Juna window to hub hand-back (R3r, research/19): the panel is laid out invisibly under the window's shell,
+   then shown in the same task the window hides; its content fades in. Scoped to .is-open so the close keeps its exit. ---- */
+.hh.is-handback.is-open .hh-panel { animation: none !important; visibility: hidden; }
+.hh.is-handback.is-open .hh-list > li { animation: none !important; }
+.hh.is-handback.is-handback-in.is-open .hh-panel,
+.hh.is-handback.is-handback-fade.is-open .hh-panel { visibility: visible; }
+.hh.is-handback.is-handback-in.is-open .hh-panel > * { animation: hh-fade-in 160ms ease both; }
+.hh.is-handback.is-handback-fade.is-open .hh-panel { animation: hh-fade-in 180ms ease both !important; }
+@media (prefers-reduced-motion: reduce) {
+  .hh.is-handback.is-handback-in.is-open .hh-panel > * { animation-duration: 120ms; }
+  .hh.is-handback.is-handback-fade.is-open .hh-panel { animation-duration: 120ms !important; }
+}
+
+/* ---- "Zum Gespräch" (R3r): the hub's way back into a running conversation. Same family as the chat's in-header
+   "Rückgängig" state: paper tint, teal 14/500, 32 px tall, 44-px hit area, no border or shadow. Right of the logo;
+   on mobile it ends left of the sheet's × (header padding-right), the logo does not move. ---- */
+.hh-head__resume {
+  position: relative; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; margin: 0 -4px 0 auto; padding: 0 10px 0 12px;
+  border: 0; border-radius: 8px;
+  background: var(--hh-paper); color: var(--hh-teal);
+  font: 500 14px/1 var(--hh-font); white-space: nowrap; cursor: pointer;
+  transition: background-color 120ms ease, transform 120ms var(--hh-ease, cubic-bezier(.2,.8,.2,1));
+  -webkit-tap-highlight-color: transparent;
+}
+.hh-head__resume[hidden] { display: none; }
+.hh-head__resume::before { content: ""; position: absolute; inset: -6px -2px; }
+.hh-head__resume:hover { background: rgba(1, 82, 83, .08); }
+.hh-head__resume:focus { outline: none; }
+.hh-head__resume:focus-visible { box-shadow: var(--mz-focus, 0 0 0 2px #fff, 0 0 0 5px rgba(1, 82, 83, .35)); }
+.hh-head__resume:active { transform: scale(.97); }
+.hh-head__resume-icon { flex: 0 0 auto; width: 16px; height: 16px; }
+.hh-head__resume-icon path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hh-head__unread {
+  box-sizing: border-box; min-width: 18px; height: 18px; margin-left: 2px; padding: 0 5px; border-radius: 9px;
+  background: var(--hh-teal); color: #fff; font: 700 11px/18px var(--hh-font); text-align: center;
+}
+.hh-head__unread[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .hh-head__resume { transition: none; } .hh-head__resume:active { transform: none; } }
+
+/* Owner 2026-10-15: icon consistency — the hub's × uses the chat header's spec (24 grid, 20 px, 1.75 stroke, #5A6565,
+   36 px button, paper hover). */
+.hh--v3 .hh-head__close { width: 36px; height: 36px; border-radius: 10px; color: #5A6565; }
+.hh--v3 .hh-head__close svg { width: 20px; height: 20px; }
+.hh--v3 .hh-head__close svg path { stroke-width: 1.75; stroke-linejoin: round; }
+.hh--v3 .hh-head__close:hover { background: var(--hh-paper); color: #1A1F1F; }
+
+/* Owner 2026-10-16: KI note = links only (sentence removed) and as wide as the field. */
+.hh--v3 .hh-ask__form .hh-ask__legal { max-width: none; left: 0; right: 0; }
+.hh-ask__legal .hh-ask__legal-links { margin-top: 0; }
+
+/* Owner 2026-10-16: "fix the blank space". The links-only note becomes a two-cell bar — same pattern as the hub's
+   footer (E-Mail schreiben | Kontakt): equal halves, centred icon + label, hairline divider, cell-wide hit area. */
+.hh--v3 .hh-ask__form .hh-ask__legal { padding: 0; overflow: hidden; }
+.hh-ask__legal .hh-ask__legal-links { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.hh-ask__legal .hh-ask__legal-links a {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 12px;
+  color: var(--hh-ink); font-size: 14px; font-weight: 500; line-height: 1.3;
+  text-decoration: none; white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.hh-ask__legal .hh-ask__legal-links a + a { border-left: 1px solid var(--mz-hair, rgba(1, 82, 83, .08)); }
+.hh-ask__legal .hh-ask__legal-links a::before { content: none; }
+.hh-ask__legal .hh-ask__legal-links a:hover { background: var(--hh-paper); color: var(--hh-teal); }
+.hh-ask__legal .hh-ask__legal-links a:focus-visible { outline: none; border-radius: 0; box-shadow: inset 0 0 0 2px var(--hh-teal); }
+.hh-ask__legal .hh-ask__legal-links svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--hh-teal); }
+.hh-ask__legal .hh-ask__legal-links svg path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ------------------------------------------------------------
+   Responsive pass (2026-10-16: "fully responsive to different screen sizes").
+   Screen classes: phone = width < 768 OR height <= 500 (landscape phones get the sheet, not a
+   squeezed 226-px desktop card); desktop card = 768+ wide and 501+ tall. Within the sheet:
+   - 640 px and wider (big phones in landscape, small tablets): centred, max 560 px, so the
+     rows stay scannable instead of label and number drifting far apart;
+   - the launcher hides while the sheet is open (the sheet has its own ×; a centred sheet
+     would otherwise leave the launcher peeking out beside it);
+   - short (<= 500 px tall): the sheet may use almost the full height, slimmer head;
+   - narrower than 360 px: the hotline number moves under its label (no clipped label).
+   ------------------------------------------------------------ */
+@media (min-width: 640px) and (max-width: 767px), (min-width: 640px) and (max-height: 500px) {
+  .hh--v3 .hh-panel { width: 560px; max-width: calc(100% - 32px); margin: 0 auto; }
+}
+@media (max-width: 767px), (max-height: 500px) {
+  .hh--v3.is-open .hh-fab { visibility: hidden; }
+}
+@media (max-height: 500px) {
+  .hh--v3 .hh-panel { max-height: calc(100vh - 8px); max-height: calc(100dvh - 8px); }
+  .hh--v3 .hh-panel__handle { margin-top: 6px; }
+  .hh--v3 .hh-head.hh-head--brand { min-height: 44px; padding-top: 8px; }
+  .hh--v3 .hh-head__close { top: 21px; }
+  .hh--v3 .hh-ask { padding-top: 8px; padding-bottom: 12px; }
+  .hh--v3 .hh-row { min-height: 48px; }
+}
+@media (max-width: 359px) {
+  .hh--v3 .hh-row.hh-tile--hotline {
+    grid-template-columns: 20px minmax(0, 1fr) 12px;
+    grid-template-rows: auto auto;
+    row-gap: 3px;
+    padding-top: 9px; padding-bottom: 9px;
+  }
+  .hh--v3 .hh-tile--hotline .hh-row__icon { grid-column: 1; grid-row: 1 / span 2; }
+  .hh--v3 .hh-tile--hotline .hh-row__label { grid-column: 2; grid-row: 1; }
+  .hh--v3 .hh-tile--hotline .hh-row__meta { grid-column: 2; grid-row: 2; }
+  .hh--v3 .hh-row.hh-tile--hotline::after { grid-column: 3; grid-row: 1 / span 2; }
+}
+
+/* Owner 2026-11-26 (iPhone): fields under 16 px make iOS Safari zoom the whole page in on focus (and stay zoomed).
+   The Juna field is 15 px, so on phones and touch screens it gets 16 px (same fix in chat-window.css). */
+@media (max-width: 767px), (max-height: 500px), (pointer: coarse) {
+  .hh-ask__field { font-size: 16px; }
+}

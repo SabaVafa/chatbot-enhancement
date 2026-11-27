@@ -1,0 +1,1192 @@
+/* ============================================================
+   Metzler Juna chat window — stylesheet (BEM prefix `cw-`)
+   Spec: research/13-chat-design-spec.md (single source of truth).
+   Lazy-loaded by help-hub.js on the first chat intent (never in the
+   critical path). Vanilla CSS, system fonts only, no dependencies.
+
+   CONTRACT
+   - Root `section.cw#metzlerChat` is appended to <body> by chat-window.js.
+     Modifiers: --compact | --expanded | --sheet.
+     States: is-open, is-closing, is-waiting, is-streaming, is-offline,
+             is-reconnecting, is-dragover, has-sent, is-resizing, cw-noanim.
+   - Only transform + opacity animate. Reduced motion → 120 ms opacity.
+   - Layers: --cw-z 1041 (hub 1040, contact modal 1050).
+   ============================================================ */
+
+.cw {
+  /* tokens — mirror .hh with the same fallbacks (spec §3) */
+  --cw-teal: var(--teal, #015253);
+  --cw-teal-600: var(--teal-600, #014A4B);
+  --cw-teal-100: var(--teal-100, #E6EEEE);
+  --cw-led: var(--mz-led, #7CC6B9);
+  --cw-rot: var(--rot, #D42924);
+  --cw-ink: #0E1414;
+  --cw-ink-2: #5A6565;
+  --cw-muted: #6A6A6A;
+  --cw-paper: #F5F6FA;
+  --cw-graphite-300: #DADADA;
+  --cw-hair: var(--mz-hair, rgba(1, 82, 83, .10));
+  --cw-hair-strong: var(--mz-hair-strong, rgba(1, 82, 83, .16));
+  --cw-ease: var(--mz-ease, cubic-bezier(.2, .8, .2, 1));
+  --cw-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --cw-radius: var(--mz-radius, 16px);
+  --cw-card-r: var(--mz-card-r, 12px);
+  --cw-shadow: var(--mz-shadow, 0 0 0 1px rgba(1, 82, 83, .08), 0 1px 2px rgba(0, 0, 0, .04), 0 24px 64px -16px rgba(1, 40, 40, .35));
+  --cw-shadow-md: 0 4px 12px rgba(0, 0, 0, .08);
+  --cw-ring: var(--mz-ring, 0 0 0 1px rgba(1, 82, 83, .12));
+  --cw-ring-hover: 0 0 0 1px rgba(1, 82, 83, .24);
+  --cw-focus: var(--mz-focus, 0 0 0 2px #fff, 0 0 0 5px rgba(1, 82, 83, .35));
+  --cw-z: 1041;
+  --cw-gutter: var(--mz-gutter, 20px);
+  --cw-safe-b: env(safe-area-inset-bottom, 0px);
+  --cw-safe-t: env(safe-area-inset-top, 0px);
+
+  position: fixed;
+  z-index: var(--cw-z);
+  right: 24px;
+  bottom: calc(72px + var(--cw-safe-b));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  height: min(640px, calc(100dvh - 96px));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--cw-radius);
+  background: #fff;
+  box-shadow: var(--cw-shadow);
+  color: var(--cw-ink);
+  font: 400 15px/1.55 var(--cw-font);
+  text-align: left;
+  letter-spacing: normal;
+  transform-origin: bottom right;
+  -webkit-font-smoothing: antialiased;
+}
+.cw[hidden] { display: none !important; }
+.cw *, .cw *::before, .cw *::after { box-sizing: border-box; }
+.cw [hidden] { display: none !important; }
+/* base resets at class-level specificity (:where) so component rules below always win */
+.cw :where(h1, h2, h3, p, ul, ol, dl, dd, figure) { margin: 0; padding: 0; }
+.cw :where(button) { font: inherit; color: inherit; letter-spacing: inherit; text-transform: none; }
+.cw :where(img) { max-width: 100%; }
+.cw :where(a) { color: var(--cw-teal); }
+.cw :focus { outline: none; }
+.cw :focus-visible { outline: none; box-shadow: var(--cw-focus); }
+.cw-sr {
+  position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.cw svg { flex: 0 0 auto; }
+.cw svg path, .cw svg circle, .cw svg rect, .cw svg polyline, .cw svg line {
+  fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* ---------- open / close motion (spec §4) ---------- */
+.cw.is-open { animation: cw-in 220ms var(--cw-ease) both; }
+.cw.is-closing { animation: cw-out 150ms ease-in both; pointer-events: none; }
+.cw--sheet.is-open { animation: cw-sheet-in 280ms var(--cw-ease) both; }
+.cw--sheet.is-closing { animation: cw-sheet-out 220ms ease-in both; }
+.cw.cw-noanim .cw-log * { animation: none !important; transition: none !important; }   /* restored transcript renders without motion; the window itself still animates */
+@keyframes cw-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes cw-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px); } }
+@keyframes cw-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes cw-sheet-out { from { transform: translateY(var(--cw-drag, 0px)); } to { transform: translateY(100%); } }
+@keyframes cw-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cw-rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes cw-rise6 { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cw-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes cw-indeterminate { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@keyframes cw-flash { from { background-color: var(--cw-teal-100); } to { background-color: #fff; } }
+
+/* ---------- sizes ---------- */
+.cw--expanded {
+  right: 24px;
+  bottom: 24px;
+  width: min(720px, calc(100vw - 48px));
+  height: min(820px, calc(100dvh - 48px));
+}
+.cw--expanded .cw-log,
+.cw--expanded .cw-composer,
+.cw--expanded .cw-confirm,
+.cw--expanded .cw-ainotice { padding-left: max(20px, calc((100% - 600px) / 2)); padding-right: max(20px, calc((100% - 600px) / 2)); }
+.cw--sheet {
+  top: var(--cw-vv-top, 0px); right: 0; left: 0;   /* pinned to the visual viewport by updateKb() (iOS keyboard) */
+  bottom: auto;
+  width: auto;
+  height: var(--cw-vv-h, 100%);
+  border-radius: 0;
+  transform: translateY(var(--cw-drag, 0px));
+  --cw-gutter: 16px;
+  z-index: 1102;   /* modal sheet: above the off-canvas filter drawer (1100) whose shadow bleeds in at x=0, and the mobile nav (1101) */
+}
+.cw--sheet.is-dragging { transition: none; }
+.cw--sheet.is-settling { transition: transform 200ms var(--cw-ease); }
+.cw.is-resizing .cw-main, .cw.is-resizing .cw-composer { animation: cw-fade-in 160ms ease both; }
+
+/* ---------- header (spec §5) ---------- */
+.cw-head {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--mz-head-h, 56px);
+  padding: 0 8px 0 20px;
+  border-bottom: 1px solid transparent;          /* CW-10: hairline only once the log is scrolled */
+  transition: border-color 150ms ease;
+  background: #fff;
+  touch-action: none;
+}
+.cw--sheet .cw-head { height: calc(56px + var(--cw-safe-t)); padding-top: var(--cw-safe-t); padding-left: 16px; }
+.cw-head__light {
+  flex: 0 0 auto;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--cw-led);
+  box-shadow: 0 0 0 3px rgba(124, 198, 185, .25);
+  transition: background-color 150ms ease;
+}
+.cw.is-waiting .cw-head__light { animation: cw-pulse 1200ms ease-in-out infinite; }
+.cw.is-streaming .cw-head__light { animation: none; }
+.cw.is-reconnecting .cw-head__light { background: var(--cw-graphite-300); box-shadow: none; animation: cw-pulse 1200ms ease-in-out infinite; }
+.cw.is-offline .cw-head__light { background: #A1A1A1; box-shadow: none; animation: none; }
+.cw-head__title {
+  font-size: 15px; line-height: 1.3; font-weight: 600; color: var(--cw-ink);
+  white-space: nowrap; border-radius: 4px;
+}
+.cw-head__ki {
+  position: relative;
+  display: inline-flex; align-items: center;
+  height: 18px; padding: 0 6px; margin: 0;
+  border: 0; border-radius: 4px;
+  background: var(--cw-teal-100); color: var(--cw-teal);
+  font-size: 11px !important; font-weight: 700; line-height: 18px; letter-spacing: .02em;
+  cursor: pointer;
+}
+.cw-head__ki::before { content: ""; position: absolute; inset: -13px -10px; }
+.cw-head__spacer { flex: 1 1 auto; }
+.cw-hbtn {
+  position: relative;
+  display: inline-grid; place-items: center;
+  width: 32px; height: 32px; margin: 0; padding: 0;
+  border: 0; border-radius: 8px;
+  background: transparent; color: #7A7A82;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.cw-hbtn::before { content: ""; position: absolute; inset: -6px; }
+.cw-hbtn:hover { background: var(--cw-paper); color: var(--cw-ink); }
+.cw-hbtn svg { width: 18px; height: 18px; }
+.cw-hbtn[aria-expanded="true"] { background: var(--cw-paper); color: var(--cw-ink); }
+.cw-head__expand { display: none; }
+@media (min-width: 1024px) and (min-height: 501px) { .cw:not(.cw--sheet) .cw-head__expand { display: inline-grid; } }
+
+.cw.is-scrolled .cw-head { border-bottom-color: var(--cw-hair); }
+.cw-head__ki:focus-visible { box-shadow: none; outline: 2px solid rgba(1, 82, 83, .5); outline-offset: 2px; }   /* CW-16 */
+
+/* AI notice (KI badge tap) */
+.cw-ainotice {
+  flex: 0 0 auto;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--cw-hair);
+  background: var(--cw-paper);
+  font-size: 13px; line-height: 1.4; color: var(--cw-ink-2);
+  animation: cw-fade-in 120ms ease;
+}
+
+/* menu */
+.cw-menu {
+  position: absolute;
+  z-index: 3;
+  top: 52px;
+  right: 8px;
+  width: 256px;                     /* fits "Mit einem Menschen sprechen" on one line */
+  margin: 0; padding: 6px;
+  list-style: none;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--cw-shadow);
+  animation: cw-rise 120ms var(--cw-ease);
+}
+.cw--sheet .cw-menu { top: calc(52px + var(--cw-safe-t)); }
+.cw-menu__item {
+  display: flex; align-items: center;
+  width: 100%; min-height: 40px; padding: 0 12px; margin: 0;
+  border: 0; border-radius: 6px;
+  background: transparent; color: var(--cw-ink);
+  font-size: 14px; font-weight: 500; line-height: 1.2;
+  text-align: left; text-decoration: none; cursor: pointer;
+}
+.cw-menu__item:hover, .cw-menu__item:focus-visible { background: var(--cw-paper); box-shadow: none; }
+.cw-menu__item--human { gap: 10px; color: var(--cw-teal); font-weight: 600; white-space: nowrap; }
+.cw-menu__item--human svg { width: 16px; height: 16px; }
+
+/* ---------- scrollbars (CW-04): thin, teal-grey, no arrow buttons ---------- */
+.cw-log, .cw-compare__scroll { scrollbar-width: thin; scrollbar-color: rgba(1, 82, 83, .18) transparent; }
+.cw-log::-webkit-scrollbar, .cw-compare__scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.cw-log::-webkit-scrollbar-thumb, .cw-compare__scroll::-webkit-scrollbar-thumb { background: rgba(1, 82, 83, .18); border-radius: 3px; }
+.cw-log::-webkit-scrollbar-track, .cw-compare__scroll::-webkit-scrollbar-track { background: transparent; }
+.cw-log::-webkit-scrollbar-button, .cw-compare__scroll::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+/* ---------- log ---------- */
+.cw-main { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.cw-log {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 20px var(--cw-gutter) 16px;
+  scroll-behavior: auto;
+  scrollbar-gutter: stable;
+  transition: opacity 150ms ease;
+}
+.cw-log > :first-child { margin-top: auto; }   /* bottom-anchored (spec §6) */
+.cw-log.is-clearing { opacity: 0; }
+.cw-turn { position: relative; min-width: 0; }
+.cw-turn + .cw-turn, .cw-welcome + .cw-turn, .cw-divider + .cw-turn { margin-top: 20px; }
+.cw-turn--bot + .cw-turn--bot, .cw-turn--system + .cw-turn--bot, .cw-turn--bot + .cw-turn--system { margin-top: 10px; }  /* same speaker */
+.cw-turn.is-enter { animation: cw-rise 180ms var(--cw-ease) both; }
+.cw-turn__body > * + * { margin-top: 10px; }
+.cw-turn.is-flash .cw-handoff { animation: cw-flash 600ms ease-out; }
+
+/* "Neu" divider */
+.cw-divider {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 20px;
+  color: var(--cw-teal); font-size: 12px; font-weight: 600; line-height: 1;
+}
+.cw-divider::before, .cw-divider::after { content: ""; flex: 1; height: 1px; background: rgba(1, 82, 83, .35); }
+
+/* ---------- welcome (spec §6) ---------- */
+.cw-welcome { display: flex; flex-direction: column; }
+.cw-welcome__head { display: none; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--cw-ink-2); }
+.cw-welcome.is-retired > :not(.cw-welcome__head) { display: none !important; }
+.cw-welcome.is-retired .cw-welcome__head { display: block; }
+.cw-welcome.is-retiring .cw-rows, .cw-welcome.is-retiring .cw-welcome__product { opacity: 0; transition: opacity 120ms ease; pointer-events: none; }
+.cw-welcome .cw-rows { margin-inline: -8px; }                 /* CW-03: icon column on the text edge */
+.cw.is-offline .cw-welcome .cw-rows, .cw.is-offline .cw-welcome__product { display: none; }   /* CW-09 */
+.cw-welcome__visual { display: none; }
+.cw--sheet .cw-welcome:not(.is-retired) { flex: 1 0 auto; }
+.cw--sheet .cw-welcome:not(.is-retired) .cw-welcome__visual {   /* CW-10/CA-05: quiet category visual on paper, sheet only */
+  display: block; width: 96px; height: 96px; margin: 4px 0 auto; padding: 8px;
+  border-radius: 12px; background: var(--cw-paper); object-fit: contain;
+}
+.cw-welcome__context { font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--cw-ink-2); }
+.cw-welcome__context strong { font-weight: 600; color: var(--cw-ink); }
+.cw-welcome__product {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 32px; margin: 8px 0 0; padding: 0 12px 0 4px;
+  border: 1px solid var(--cw-hair-strong); border-radius: 999px;
+  background: #fff; color: var(--cw-ink);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  position: relative;
+}
+.cw-welcome__product::before { content: ""; position: absolute; inset: -6px 0; }
+.cw-welcome__product img { width: 24px; height: 24px; border-radius: 4px; object-fit: contain; background: var(--cw-paper); }
+.cw-welcome__product:hover { background: var(--cw-paper); }
+.cw-welcome__title { margin-top: 8px; font-size: 22px; line-height: 1.25; font-weight: 700; letter-spacing: -.015em; color: var(--cw-ink); }
+.cw-welcome__scope { margin-top: 4px; font-size: 15px; line-height: 1.5; color: var(--cw-ink-2); }
+.cw-welcome .cw-rows { margin-top: 16px; }
+
+/* rows (hub row language) */
+.cw-rows { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.cw-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cw-ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.cw-row:hover { background: var(--cw-paper); }
+.cw-row:focus-visible { box-shadow: inset 0 0 0 2px var(--cw-teal); }
+.cw-row__icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--cw-teal-100); color: var(--cw-teal); }
+.cw-row__icon svg { width: 18px; height: 18px; }
+.cw-row__label { min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-row__chev { width: 16px; height: 16px; color: #A1A1A1; transition: transform 150ms var(--cw-ease), color 150ms ease; }
+.cw-row:hover .cw-row__chev { transform: translateX(2px); color: var(--cw-teal); }
+.cw-welcome .cw-rows > li { animation: cw-rise6 180ms var(--cw-ease) both; }
+.cw-welcome .cw-rows > li:nth-child(2) { animation-delay: 30ms; }
+.cw-welcome .cw-rows > li:nth-child(3) { animation-delay: 60ms; }
+.cw-welcome .cw-rows > li:nth-child(4) { animation-delay: 90ms; }
+/* answer options (question → rows, 44 h, label + chevron) — CW-08: one grouped hairline panel */
+.cw-rows--answers { margin-top: 12px; gap: 0; border-radius: var(--cw-card-r); box-shadow: var(--cw-ring); overflow: hidden; background: #fff; }
+.cw-rows--answers > li + li { border-top: 1px solid var(--cw-hair); }
+.cw-rows--answers .cw-row { grid-template-columns: minmax(0, 1fr) 16px; min-height: 44px; padding: 4px 12px; border-radius: 0; }
+.cw-rows--answers .cw-row:focus-visible { box-shadow: inset 0 0 0 2px var(--cw-teal); }
+.cw-rows--answers .cw-row--photo { grid-template-columns: 20px minmax(0, 1fr) 16px; color: var(--cw-teal); }
+.cw-rows--answers .cw-row--photo svg:first-child { width: 18px; height: 18px; }
+
+/* ---------- Juna text (no bubble, spec §7) ---------- */
+.cw-text { max-width: 62ch; font-size: 15px; line-height: 1.55; color: var(--cw-ink); overflow-wrap: anywhere; }
+.cw-text > * + * { margin-top: 10px; }
+.cw-text strong { font-weight: 600; }
+.cw-text a { color: var(--cw-teal); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.cw-text ul, .cw-text ol { list-style: none; }
+.cw-text li { position: relative; padding-left: 16px; }
+.cw-text li + li { margin-top: 4px; }
+.cw-text ul > li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 4px; height: 4px; background: var(--cw-teal); }
+.cw-text ol { counter-reset: cw-ol; }
+.cw-text ol > li { counter-increment: cw-ol; padding-left: 20px; }
+.cw-text ol > li::before { content: counter(cw-ol) "."; position: absolute; left: 0; color: var(--cw-teal); font-weight: 600; }
+.cw-text code { font: 13px/1.4 ui-monospace, Consolas, monospace; background: var(--cw-paper); padding: 1px 4px; border-radius: 4px; }
+.cw-text table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.cw-text th, .cw-text td { padding: 8px 8px 8px 0; border-bottom: 1px solid var(--cw-hair); text-align: left; vertical-align: top; }
+.cw-text th { font-size: 12px; font-weight: 500; color: var(--cw-ink-2); }
+.cw-nb { white-space: nowrap; }
+.cw-source { margin-top: 8px; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--cw-ink-2); }
+.cw-source a { color: var(--cw-teal); text-decoration: none; }
+.cw-source a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.cw-caret {
+  display: inline-block;
+  width: 2px; height: 16px;
+  margin-left: 2px;
+  vertical-align: -3px;
+  background: var(--cw-teal);
+}
+.cw-caret.is-out { opacity: 0; transition: opacity 120ms ease; }
+.cw-typing { display: none; font-size: 13px; color: var(--cw-ink-2); margin-top: 12px; }
+
+/* ---------- user plate ---------- */
+.cw-turn--user { display: flex; flex-direction: column; align-items: flex-end; }
+.cw-plate {
+  max-width: 80%;
+  padding: 9px 14px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--cw-teal-100);
+  color: var(--cw-ink);
+  font-size: 15px; line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transition: opacity 150ms ease;
+}
+.cw-turn--user.is-sending .cw-plate { opacity: .6; }
+.cw-plate--photo {
+  position: relative;
+  width: 200px; max-width: 200px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--cw-paper);
+}
+.cw-plate--photo img { display: block; width: 100%; height: auto; max-height: 260px; object-fit: cover; }
+.cw-plate--photo .cw-plate__caption { padding: 8px 12px; background: var(--cw-teal-100); font-size: 14px; }
+.cw-turn--user.is-sending .cw-plate--photo { opacity: .7; }
+.cw-plate__progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; }
+.cw-plate__progress::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; background: var(--cw-teal); animation: cw-indeterminate 1200ms linear infinite; }
+.cw-turn--user:not(.is-sending) .cw-plate__progress { display: none; }
+.cw-plate__failed { margin-top: 4px; font-size: 12px; font-weight: 500; color: var(--cw-rot); }
+.cw-plate__failed button {
+  position: relative; margin: 0; padding: 0; border: 0; background: none;
+  color: var(--cw-rot); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.cw-plate__failed button::before { content: ""; position: absolute; inset: -14px -6px; }
+
+/* ---------- follow-up chips ---------- */
+.cw-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; transition: opacity 120ms ease; }
+.cw:not(.cw--expanded) .cw-chips { flex-direction: column; align-items: flex-start; }   /* CW-13: stable rhythm */
+.cw-chips.is-gone, .cw-rows--answers.is-gone { opacity: 0; pointer-events: none; }
+.cw-chip {
+  position: relative;
+  display: inline-flex; align-items: center;
+  height: 36px; margin: 0; padding: 0 14px;
+  border: 1px solid rgba(1, 82, 83, .24);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--cw-teal);
+  font-size: 14px; font-weight: 600; line-height: 1;
+  cursor: pointer;
+  animation: cw-rise 180ms var(--cw-ease) both;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.cw-chip::before { content: ""; position: absolute; inset: -4px 0; }
+.cw-chip:hover { background: var(--cw-teal-100); border-color: rgba(1, 82, 83, .4); }
+.cw-chip:nth-child(2) { animation-delay: 30ms; }
+
+/* ---------- notices / errors (spec §9) ---------- */
+.cw-notice { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--cw-ink-2); }
+.cw-notice svg { width: 16px; height: 16px; margin-top: 1px; color: var(--cw-ink-2); }
+.cw-notice__action {
+  position: relative; display: inline; margin: 0 0 0 4px; padding: 0; border: 0; background: none;
+  color: var(--cw-teal); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.cw-notice__action::before { content: ""; position: absolute; inset: -14px -6px; }
+
+/* ---------- product card (spec §8) ---------- */
+.cw-product {
+  position: relative;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 112px;
+  padding: 12px;
+  border-radius: var(--cw-card-r);
+  background: #fff;
+  box-shadow: var(--cw-ring);
+  transition: box-shadow 120ms ease;
+}
+.cw-product:hover { box-shadow: var(--cw-ring-hover); }
+.cw-product:focus-within { box-shadow: var(--cw-ring-hover), var(--cw-focus); }
+.cw-product__media { width: 88px; height: 88px; padding: 6px; border-radius: 8px; background: var(--cw-paper); }
+.cw-product__media img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.cw-product__body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.cw-product__title { font-size: 15px; line-height: 1.3; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-product__meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--cw-ink-2); line-height: 1.2; min-width: 0; }
+.cw-product__meta span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-badge {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px;
+  border: 1px solid rgba(1, 82, 83, .4); color: var(--cw-teal);
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; flex: 0 0 auto;
+}
+.cw-product__price { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.cw-product__price strong { font-size: 16px; font-weight: 700; }
+.cw-product__uvp { font-size: 12px; color: var(--cw-muted); }
+.cw-product__uvp s { text-decoration-thickness: 1px; }
+.cw-product__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; font-size: 12px; color: var(--cw-ink-2); }
+.cw-product__link { font-size: 14px; font-weight: 600; color: var(--cw-teal); text-decoration: none; white-space: nowrap; margin-left: auto; }
+.cw-product__link::after { content: ""; position: absolute; inset: 0; border-radius: var(--cw-card-r); }
+.cw-product__link:focus-visible { box-shadow: none; }
+.cw-product__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: auto; }
+.cw-product__actions a, .cw-product__actions button { padding: 0; border: 0; background: none; color: var(--cw-teal); font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
+
+/* carousel */
+.cw-carousel { position: relative; }
+.cw-carousel__track {
+  display: flex; gap: 8px;
+  margin: -4px calc(-1 * var(--cw-gutter)); padding: 4px var(--cw-gutter);
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--cw-gutter);
+  scrollbar-width: none;
+  list-style: none;
+}
+.cw-carousel__track::-webkit-scrollbar { display: none; }
+.cw-carousel__item { flex: 0 0 280px; scroll-snap-align: start; }
+.cw-carousel__nav {
+  position: absolute; top: 50%; z-index: 2;
+  display: none; place-items: center;
+  width: 32px; height: 32px; margin-top: -16px; padding: 0;
+  border: 0; border-radius: 50%;
+  background: #fff; box-shadow: var(--cw-ring), var(--cw-shadow-md);
+  color: var(--cw-teal); cursor: pointer;
+}
+.cw-carousel__nav svg { width: 16px; height: 16px; }
+.cw-carousel__nav--prev { left: -8px; }
+.cw-carousel__nav--next { right: -8px; }
+@media (hover: hover) and (min-width: 768px) and (min-height: 501px) {
+  .cw-carousel:hover .cw-carousel__nav, .cw-carousel:focus-within .cw-carousel__nav { display: grid; }
+}
+.cw-carousel__nav[disabled] { opacity: 0; pointer-events: none; }
+.cw--expanded .cw-carousel__track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; margin: 0; padding: 0; }
+.cw--expanded .cw-carousel__nav { display: none !important; }
+.cw--expanded .cw-carousel .cw-product { grid-template-columns: 1fr; height: 100%; }
+.cw--expanded .cw-carousel .cw-product__media { width: 100%; height: 120px; }
+
+/* ---------- comparison datasheet ---------- */
+.cw-compare { position: relative; }
+.cw-compare__scroll { overflow-x: hidden; }
+.cw-compare--many .cw-compare__scroll { overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: 72px; }   /* ≥4 products only */
+.cw-compare--many.is-scrollable:not(.is-end)::after {
+  content: ""; position: absolute; top: 0; bottom: 36px; right: 0; width: 24px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff);
+}
+/* CW-02: compact = label 72 + 3 equal value columns, everything visible */
+.cw-compare table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.cw-compare--many table { width: auto; table-layout: auto; }
+.cw-compare th, .cw-compare td { padding: 9px 8px 9px 0; border-bottom: 1px solid var(--cw-hair); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.cw-compare tbody th, .cw-compare thead th:first-child, .cw-compare tfoot th { width: 72px; }
+.cw-compare tbody th {
+  position: sticky; left: 0; z-index: 1;
+  background: #fff;
+  font-size: 12px; font-weight: 500; line-height: 1.35; color: var(--cw-ink-2);
+}
+.cw-compare thead th { border-bottom: 1px solid var(--cw-hair-strong); vertical-align: top; }   /* CW-05: shared baseline */
+.cw-compare thead th:first-child { position: sticky; left: 0; z-index: 1; background: #fff; }
+.cw-compare--many td, .cw-compare--many thead th:not(:first-child), .cw-compare--many tfoot td { min-width: 96px; scroll-snap-align: start; }
+.cw--expanded .cw-compare tbody th, .cw--expanded .cw-compare thead th:first-child, .cw--expanded .cw-compare tfoot th { width: 96px; }
+.cw-compare__head { display: flex; flex-direction: column; gap: 6px; }
+.cw-compare__head img { width: 40px; height: 40px; padding: 4px; border-radius: 6px; background: var(--cw-paper); object-fit: contain; }
+.cw-compare__head span { font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--cw-ink); }
+.cw-compare__fam { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-compare__full { display: none; }
+.cw--expanded .cw-compare__fam { display: none; }
+.cw--expanded .cw-compare__full { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cw-compare td { font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--cw-ink); }
+.cw-compare td.is-num { text-align: right; }                   /* CW-06: numbers right-aligned, tabular */
+.cw-compare td.is-best { color: var(--cw-teal); font-weight: 600; }
+.cw-compare td.is-best .cw-compare__v::before {                 /* CW-06: a dot, not a link-like underline */
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; vertical-align: 2px;
+  border-radius: 50%; background: var(--cw-teal);
+}
+.cw-compare tr.is-same { display: none; }
+.cw-compare.show-all tr.is-same { display: table-row; }
+.cw-compare.show-all tr.is-same td { color: var(--cw-muted); }
+.cw-compare tfoot td { border-bottom: 0; padding-top: 10px; }
+.cw-compare tfoot th { border-bottom: 0; position: sticky; left: 0; background: #fff; }
+.cw-compare__link { font-size: 14px; font-weight: 600; color: var(--cw-teal); text-decoration: none; white-space: nowrap; }
+.cw-compare__toggle {
+  position: relative; margin: 10px 0 0; padding: 0; border: 0; background: none;
+  color: var(--cw-teal); font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.cw-compare__toggle::before { content: ""; position: absolute; inset: -14px -6px; }
+
+/* ---------- handoff card ---------- */
+.cw-handoff { padding: 0; overflow: hidden; border-radius: var(--cw-card-r); background: #fff; box-shadow: var(--cw-ring); }
+.cw-handoff__title { padding: 14px 12px 8px; font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--cw-ink); }   /* CW-03: title and icons share x = 12 */
+.cw-handoff .cw-rows { gap: 0; }
+.cw-handoff .cw-rows > li { border-top: 1px solid var(--cw-hair); }          /* CW-08: hairline-separated rows */
+.cw-handoff .cw-row { grid-template-columns: 36px minmax(0, 1fr) auto 16px; min-height: 48px; padding: 6px 12px; border-radius: 0; }
+.cw-handoff .cw-row:focus-visible { box-shadow: inset 0 0 0 2px var(--cw-teal); }
+.cw-handoff:not(.cw-handoff--flat) li:first-child .cw-row__icon { background: var(--cw-teal); color: #fff; }   /* CA-01: montage card has no filled row */
+.cw-row__meta { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; color: var(--cw-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cw-row__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cw-led); box-shadow: 0 0 0 2px rgba(124, 198, 185, .25); }
+.cw-row__dot.is-closed { background: var(--cw-graphite-300); box-shadow: none; }
+
+/* ---------- Beratungsprotokoll ---------- */
+.cw-summary { padding: 16px; border-radius: var(--cw-card-r); background: #fff; box-shadow: var(--cw-ring); }
+.cw-summary__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cw-summary__head h3 { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.cw-summary__head time { font-size: 12px; color: var(--cw-ink-2); font-variant-numeric: tabular-nums; }
+.cw-summary dl { margin-top: 10px; }
+.cw-summary dl > div { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; padding: 5px 0; border-top: 1px solid var(--cw-hair); }   /* CW-07 */
+.cw-summary dt { padding-top: 2px; }
+.cw-summary dt { font-size: 12px; line-height: 1.35; color: var(--cw-ink-2); }
+.cw-summary dd { margin: 0; font-size: 14px; font-weight: 500; line-height: 1.35; }
+.cw-summary__prod { display: flex; align-items: center; gap: 8px; }
+.cw-summary__prod img { flex: 0 0 auto; width: 22px; height: 22px; padding: 1px; border-radius: 4px; background: var(--cw-paper); object-fit: contain; }
+.cw-summary__note { margin-top: 8px; font-size: 11px; line-height: 1.45; color: var(--cw-muted); }
+.cw-summary__actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.cw-obtn {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 14px; margin: 0;
+  border: 1px solid rgba(1, 82, 83, .24); border-radius: 8px;
+  background: #fff; color: var(--cw-teal);
+  font-size: 14px; font-weight: 600; line-height: 1; cursor: pointer;
+}
+.cw-obtn::before { content: ""; position: absolute; inset: -4px 0; }
+.cw-obtn:hover { background: var(--cw-teal-100); }
+.cw-obtn--primary { background: var(--cw-teal); border-color: var(--cw-teal); color: #fff; }
+.cw-obtn--primary:hover { background: var(--cw-teal-600); }
+.cw-summary__status { font-size: 12px; font-weight: 600; color: var(--cw-teal); }
+
+/* ---------- bot media / file / generic ---------- */
+.cw-figure img, .cw-media { display: block; max-width: 100%; border-radius: 12px; }
+.cw-figure figcaption { margin-top: 6px; font-size: 12px; color: var(--cw-ink-2); }
+
+/* ---------- "Neue Antwort ↓" pill ---------- */
+.cw-newpill {
+  position: absolute; left: 50%; bottom: 12px; z-index: 2;
+  height: 32px; padding: 0 14px; margin: 0;
+  border: 0; border-radius: 999px;
+  background: #fff; box-shadow: var(--cw-ring), var(--cw-shadow-md);
+  color: var(--cw-teal); font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer;
+  transform: translateX(-50%);
+  animation: cw-pill-in 150ms var(--cw-ease) both;
+}
+.cw-newpill::before { content: ""; position: absolute; inset: -6px 0; }
+@keyframes cw-pill-in { from { opacity: 0; transform: translate(-50%, 4px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---------- composer (spec §9) ---------- */
+.cw-composer { flex: 0 0 auto; padding: 12px 16px calc(12px + var(--cw-safe-b)); background: #fff; }
+.cw--sheet.has-kb .cw-composer, .cw--sheet.has-kb .cw-confirm { padding-bottom: 12px; }   /* keyboard up: no home-indicator inset */
+.cw-composer__box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--cw-hair-strong);
+  border-radius: 14px;
+  background: #fff;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.cw-composer__box:focus-within { border-color: var(--cw-teal); box-shadow: 0 0 0 3px rgba(1, 82, 83, .12); }
+.cw-composer__attach {
+  position: relative;
+  display: grid; place-items: center;
+  width: 40px; height: 44px; margin: 0; padding: 0;
+  border: 0; border-radius: 10px; background: transparent; color: #7A7A82; cursor: pointer;
+}
+.cw-composer__attach::before { content: ""; position: absolute; inset: 0 -2px; }   /* 44 px hit area */
+.cw-composer__attach:hover { color: var(--cw-teal); background: var(--cw-paper); }
+.cw-composer__attach svg { width: 20px; height: 20px; }
+.cw-composer__field {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  max-height: 120px;
+  margin: 0;
+  padding: 11px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--cw-ink);
+  font: 400 15px/1.45 var(--cw-font);
+  resize: none;
+  overflow-y: auto;
+}
+.cw-composer__field:focus, .cw-composer__field:focus-visible { box-shadow: none; outline: none; }
+.cw-composer__field::placeholder { color: #8A8F8F; opacity: 1; }
+.cw-composer__field:disabled { background: transparent; color: var(--cw-muted); }
+.cw-composer__send {
+  position: relative;
+  display: grid; place-items: center;
+  width: 36px; height: 36px; margin: 4px; padding: 0;
+  border: 0; border-radius: 50%;
+  background: var(--cw-teal); color: #fff; cursor: pointer;
+  transition: background-color 120ms ease, transform 120ms var(--cw-ease);
+}
+.cw-composer__send::before { content: ""; position: absolute; inset: -4px; }
+.cw-composer__send svg { width: 18px; height: 18px; }
+.cw-composer__send svg path { stroke-width: 2.2; }
+.cw-composer__send:hover { background: var(--cw-teal-600); }
+.cw-composer__send:active { transform: scale(.96); }
+.cw-composer__send:disabled { background: #EEF1F1; color: #A1A1A1; cursor: default; transform: none; }
+.cw-composer__meta { display: flex; justify-content: space-between; gap: 8px; }
+.cw-composer__privacy { margin-top: 8px; font-size: 11px; line-height: 1.45; color: var(--cw-muted); transition: opacity 150ms ease; }
+.cw-composer__privacy a { color: var(--cw-muted); text-decoration: underline; text-underline-offset: 2px; }
+.cw.has-sent .cw-composer__privacy { display: none; }
+.cw-composer__count { margin-top: 8px; margin-left: auto; font-size: 11px; color: var(--cw-muted); font-variant-numeric: tabular-nums; }
+.cw-composer__error { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--cw-rot); }
+.cw-composer__tray { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cw-composer__thumb { position: relative; flex: 0 0 auto; width: 56px; height: 56px; }
+.cw-composer__thumb img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; display: block; }
+.cw-composer__thumb button {
+  position: absolute; top: -6px; right: -6px;
+  display: grid; place-items: center;
+  width: 22px; height: 22px; padding: 0; margin: 0;
+  border: 0; border-radius: 50%;
+  background: var(--cw-ink); color: #fff; cursor: pointer;
+}
+.cw-composer__thumb button::before { content: ""; position: absolute; inset: -11px; }
+.cw-composer__thumb button svg { width: 12px; height: 12px; }
+.cw-composer__thumb button svg path { stroke-width: 2.4; }
+.cw-composer__hint { font-size: 11px; line-height: 1.45; color: var(--cw-muted); }
+
+/* inline restart confirmation (same slot as the composer) */
+.cw-confirm { flex: 0 0 auto; padding: 12px 16px calc(12px + var(--cw-safe-b)); animation: cw-fade-in 150ms ease; }
+.cw-confirm p { font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--cw-ink); }
+.cw-confirm__btns { display: flex; gap: 8px; margin-top: 10px; }
+
+/* drop overlay */
+.cw-drop {
+  position: absolute; inset: 8px; z-index: 5;
+  display: grid; place-items: center;
+  border: 1.5px dashed var(--cw-teal); border-radius: 12px;
+  background: rgba(230, 238, 238, .92);
+  color: var(--cw-teal); font-size: 15px; font-weight: 600;
+  pointer-events: none;
+  animation: cw-fade-in 120ms ease;
+}
+
+/* offline composer */
+.cw.is-offline .cw-composer__box { background: var(--cw-paper); }
+
+/* ---------- mobile sheet adjustments ---------- */
+@media (max-width: 767px), (max-height: 500px) {
+  .cw-row { min-height: 56px; }
+  .cw-rows--answers .cw-row { min-height: 48px; }
+  .cw-welcome .cw-rows > li { animation: none; }
+}
+
+/* ---------- reduced motion (spec §11) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .cw.is-open, .cw--sheet.is-open { animation: cw-fade-in 120ms ease both; }
+  .cw.is-closing, .cw--sheet.is-closing { animation: cw-fade-out 120ms ease both; }
+  .cw-turn.is-enter, .cw-chip, .cw-welcome .cw-rows > li, .cw-menu, .cw-newpill, .cw-ainotice { animation: cw-fade-in 120ms ease both; animation-delay: 0ms; }
+  .cw-newpill { transform: translateX(-50%); }
+  .cw.is-waiting .cw-head__light, .cw.is-reconnecting .cw-head__light { animation: none; }
+  .cw-row__chev, .cw-row:hover .cw-row__chev { transform: none; transition: none; }
+  .cw-plate__progress::after { animation: none; width: 100%; opacity: .5; }
+  .cw.is-waiting .cw-typing { display: block; opacity: 0; animation: cw-fade-in 120ms ease 600ms forwards; }
+  .cw--sheet.is-settling { transition: none; }
+}
+@keyframes cw-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ---------- print: Beratungsprotokoll only (spec §8) ----------
+   The same rules apply on screen under html.cw-print-preview (QA aid). */
+.cw-print-root { display: none; }
+@media print {
+  @page { size: A4; margin: 20mm; }
+  body > *:not(.cw-print-root) { display: none !important; }
+  body { background: #fff !important; }
+  .cw-print-root { display: block !important; }
+}
+.cw-print-root, html.cw-print-preview .cw-print-root {
+  font: 11pt/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #000;
+}
+html.cw-print-preview body > *:not(.cw-print-root) { display: none !important; }
+html.cw-print-preview .cw-print-root { display: block; max-width: 170mm; margin: 20mm auto; padding: 0; background: #fff; }
+.cw-print__brand { font-size: 14pt; font-weight: 700; letter-spacing: .18em; margin: 0 0 6mm; color: #015253; }
+.cw-print-root h1 { font-size: 16pt; margin: 0 0 1mm; }
+.cw-print-root .cw-print__date { font-size: 10pt; color: #444; margin: 0 0 6mm; }
+.cw-print-root dl { margin: 0; }
+.cw-print-root dl > div { display: grid; grid-template-columns: 45mm 1fr; gap: 4mm; padding: 2.5mm 0; border-top: .3mm solid #ccc; }
+.cw-print-root dt { color: #444; margin: 0; }
+.cw-print-root dd { margin: 0; font-weight: 500; }
+.cw-print-root .cw-print__urls { margin: 6mm 0 0; padding: 0; list-style: none; font-size: 9.5pt; }
+.cw-print-root .cw-print__urls li { margin: 1mm 0; overflow-wrap: anywhere; }
+.cw-print-root .cw-print__note { margin: 6mm 0 0; font-size: 9pt; color: #444; }
+.cw-print-root .cw-print__foot { margin: 10mm 0 0; padding-top: 3mm; border-top: .3mm solid #ccc; font-size: 9pt; color: #444; }
+
+/* ⋯ menu legal group (owner 2026-10-15): quiet, separated by a hairline, two links side by side */
+.cw-menu__legal { display: flex; gap: 2px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--mz-hair, rgba(1,82,83,.10)); }
+.cw-menu__item--legal { width: auto; flex: 1 1 0; justify-content: center; min-height: 40px; font-size: 13px; font-weight: 500; color: var(--cw-ink-2, #5A6565); }
+.cw-menu__item--legal:hover, .cw-menu__item--legal:focus-visible { color: var(--cw-teal); }
+
+/* ------------------------------------------------------------
+   Brand header + KI chip in the composer (owner 2026-10-15: "apply the same logo and style
+   to the chat window header"). Mirrors the hub: logo left, actions right; "● Juna" leaves the
+   visible header (title + status stay sr-only); the KI chip leads the composer field, the camera
+   moves next to send; the AI note opens as a band right above the composer.
+   ------------------------------------------------------------ */
+.cw-brand { display: block; height: 22px; width: auto; flex: 0 0 auto; }
+.cw-composer__box { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.cw-composer__box .cw-head__ki {
+  align-self: end;
+  height: 22px; line-height: 22px; padding: 0 7px; margin: 0 2px 11px 8px;
+  border-radius: 6px;
+}
+.cw-ainotice { border-bottom: 0; border-top: 1px solid var(--cw-hair); }
+
+/* Follow-up pills in greyscale (owner 2026-10-15). Teal stays reserved for primary actions and links;
+   the pills are quiet suggestions: neutral border, near-ink text, grey hover. Contrast #2B2F30 on #fff ≈ 14:1. */
+.cw-chip {
+  border-color: #D5D9DA;
+  background: #fff;
+  color: #2B2F30;
+  font-weight: 500;
+}
+.cw-chip:hover { background: #F1F3F4; border-color: #B7BDBF; color: #1A171B; }
+.cw-chip:active { background: #E8EBEC; }
+
+/* Owner 2026-10-15: "remove the text" — the retired welcome's context line ("Türsprechanlagen · Juna")
+   above the conversation is dropped; once the first message is sent the welcome disappears completely. */
+.cw-welcome.is-retired { display: none !important; }
+
+/* Window above the visible launcher (desktop): launcher bottom 72 + 56 + 12 gap = 140 px, same as the hub panel. */
+@media (min-width: 768px) and (min-height: 501px) {
+  .cw:not(.cw--sheet) { bottom: calc(140px + var(--cw-safe-b)); height: min(640px, calc(100dvh - 164px)); }
+  .cw.cw--expanded { bottom: 140px; height: min(820px, calc(100dvh - 164px)); }
+}
+
+/* ------------------------------------------------------------
+   Juna's message surface (owner 2026-10-15: "the interface of the KI message is not designed professionally").
+   Before: bubble-less paragraph at full width next to a tinted user bubble → unbalanced, read as stray page text.
+   Now: mirrored pair. User = teal-tint plate, tail bottom-right; Juna = neutral paper bubble (same tone as the hub's
+   service zone), tail bottom-left, max 88 % wide. No border, no per-message avatar/name (identity = shape + side).
+   Cards (handoff, products, compare) stay full width below the bubble.
+   ------------------------------------------------------------ */
+.cw-turn--bot .cw-turn__body > .cw-text {
+  width: fit-content;
+  max-width: min(88%, 62ch);
+  padding: 12px 16px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--cw-paper);
+  color: #1A1F1F;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.cw-plate { padding: 10px 16px; border-radius: 16px 16px 4px 16px; line-height: 1.5; }
+/* the source link belongs to the answer: tucked under the bubble, aligned with its text */
+.cw-turn--bot .cw-turn__body > .cw-text + .cw-source { margin-top: 6px; padding-left: 16px; }
+/* a card that follows Juna's text starts a new block — a touch more air than between text lines */
+.cw-turn--bot .cw-turn__body > .cw-text + :not(.cw-source) { margin-top: 12px; }
+
+/* ---- Owner 2026-10-15 ----
+   1) Undo pill: black was "too much" → quiet paper pill, ink text, teal action (same family as the hub's service zone).
+   2) "Fix the blank space": the compact desktop window sizes to its content (welcome first, then grows upward with
+      the conversation) up to the previous maximum, after which the log scrolls. Expanded keeps its fixed size;
+      the mobile sheet stays full height.
+   3) "Remove the text": no "Sie sehen: Türsprechanlagen" context line in the welcome. */
+/* (1) superseded by spec 18: the undo now lives in the header ↻ button — see "Restart ↔ Rückgängig" below */
+
+@media (min-width: 768px) and (min-height: 501px) {
+  .cw:not(.cw--sheet):not(.cw--expanded) { height: auto; max-height: min(640px, calc(100dvh - 164px)); }
+}
+
+.cw-welcome__context { display: none; }
+
+/* Owner 2026-10-15: "remove the marked text" — the welcome scope line ("Ich bin eine KI und helfe bei …") is no
+   longer shown. It stays for screen readers (AI disclosure); visually the KI chip in the composer carries it. */
+.cw-welcome__scope { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Owner 2026-10-15: the ⋯ dropdown was "fully unprofessional" (two legal links in a menu, empty band, stray divider).
+   Menu removed from the header (logo · restart · expand · close). Legal links sit in the KI note above the composer,
+   exactly like the hub's KI note. The summary stays available as the follow-up chip after a recommendation. */
+.cw-head__menu, .cw-menu { display: none !important; }
+.cw-ainotice__links { display: flex; gap: 20px; margin-top: 6px; }
+.cw-ainotice__links a {
+  position: relative;
+  color: var(--cw-teal); font-size: 13px; font-weight: 500;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.cw-ainotice__links a::before { content: ""; position: absolute; inset: -12px -6px; }
+.cw-ainotice__links a:hover { color: var(--cw-teal-600); }
+.cw-ainotice__links a:focus { outline: none; }
+.cw-ainotice__links a:focus-visible { outline: 2px solid var(--cw-teal); outline-offset: 2px; border-radius: 2px; }
+
+/* Owner 2026-10-15: "fix the full screen blank space" — the expanded window (720 px wide) also sizes to its content and
+   grows with the conversation up to its previous maximum; the wide layout for comparisons is unchanged. */
+@media (min-width: 768px) and (min-height: 501px) {
+  .cw.cw--expanded { height: auto; max-height: min(820px, calc(100dvh - 164px)); }
+}
+
+/* ---- Restart ↔ Rückgängig (spec 18, option b) ----
+   One header element: ↻ "Neues Gespräch"; for 6 s after a restart it becomes ↶ "Rückgängig" on a paper tone and
+   grows left into the header spacer (logo, expand and × keep their positions). No element is added to the log. */
+.cw-head__restart .cw-i-undo,
+.cw-head__restart .cw-head__restart-label { display: none; }
+.cw-head__restart.is-undo {
+  display: inline-flex; align-items: center; gap: 6px;
+  width: auto; height: 32px; padding: 0 12px 0 10px;
+  border-radius: 8px;
+  background-color: var(--cw-paper);
+  color: var(--cw-teal);
+  transition: background-color 120ms ease, transform 120ms var(--mz-ease, cubic-bezier(.2,.8,.2,1));
+}
+.cw-head__restart.is-undo::before { inset: -6px -2px; }          /* 44-px hit area */
+.cw-head__restart.is-undo .cw-i-restart { display: none; }
+.cw-head__restart.is-undo .cw-i-undo { display: block; width: 16px; height: 16px; animation: cw-fade-in 120ms ease both; }
+.cw-head__restart.is-undo .cw-head__restart-label {
+  display: inline; font-size: 14px; font-weight: 500; line-height: 1; color: var(--cw-teal); white-space: nowrap;
+  animation: cw-restart-label 180ms var(--mz-ease, cubic-bezier(.2,.8,.2,1)) both;
+}
+.cw-head__restart.is-undo:hover { background-color: rgba(1, 82, 83, .08); color: var(--cw-teal); }
+.cw-head__restart.is-undo:focus-visible { box-shadow: var(--mz-focus, 0 0 0 2px #fff, 0 0 0 5px rgba(1, 82, 83, .35)); }
+.cw-head__restart.is-undo:active { transform: scale(.97); }
+.cw-head__restart:not(.is-undo) .cw-i-restart { animation: cw-fade-in 120ms ease both; }
+/* expiry: label, icon and tone fade (150 ms), then JS sets hidden */
+.cw-head__restart.is-undo-out { background-color: transparent; transition: background-color 150ms ease; }
+.cw-head__restart.is-undo-out .cw-head__restart-label,
+.cw-head__restart.is-undo-out .cw-i-undo { opacity: 0; transition: opacity 150ms ease; animation: none; }
+@keyframes cw-restart-label { from { opacity: 0; transform: translateX(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .cw-head__restart.is-undo { transition: background-color 120ms ease; }
+  .cw-head__restart.is-undo:active { transform: none; }
+  .cw-head__restart.is-undo .cw-head__restart-label { animation: cw-fade-in 120ms ease both; }
+  .cw-head__restart.is-undo-out .cw-head__restart-label,
+  .cw-head__restart.is-undo-out .cw-i-undo { transition-duration: 120ms; }
+}
+
+/* ---- Hub → window hand-over (research/19) ---- */
+.cw.cw-handing, .cw--sheet.cw-handing, .cw.cw-handed.is-open { animation: none !important; }            /* the hub's shell becomes this window */
+.cw.cw-handing--shell { background: transparent; box-shadow: none; }             /* until the swap (no double shadow) */
+.cw-turn--user[data-carried].is-sending .cw-plate { opacity: 1; }                 /* the carried plate never dims */
+/* a retired (hidden) welcome must not cancel bottom anchoring: the newest turn stays put while the window grows */
+.cw-log > .cw-welcome.is-retired + * { margin-top: auto; }
+.cw-turn.is-flying .cw-plate { visibility: hidden; }
+.cw-flyer { position: fixed; z-index: 1102; margin: 0; pointer-events: none; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .cw-flyer { display: none; } }
+
+/* ---- header home (R3r): ‹ + logo is ONE button back to the hub. (‹ Metzler) · (↻) · expand · ×
+   The chevron's left edge sits on the log's text edge (header padding = gutter; the button's 8-px padding is
+   pulled back by margin-left -8); the right group is pushed by margin-right:auto (no spacer gap). ---- */
+.cw-head { padding-left: var(--cw-gutter); }
+.cw--sheet .cw-head { padding-left: var(--cw-gutter); }
+.cw-head .cw-hbtn { flex-shrink: 0; }
+.cw-head .cw-head__spacer { display: none; }
+.cw-head > .cw-brand { margin-right: auto; }
+.cw-head__home {
+  position: relative; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 40px; margin: 0 auto 0 -8px; padding: 6px 8px;
+  border: 0; border-radius: 10px;
+  background: transparent; color: var(--cw-ink-2);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background-color 150ms var(--mz-ease, cubic-bezier(.2,.8,.2,1));
+}
+.cw-head__home::before { content: ""; position: absolute; inset: -2px 0; }          /* 44-px hit area */
+.cw-head__home-chev { display: inline-grid; place-items: center; width: 16px; height: 16px; flex: 0 0 auto;
+  transition: transform 150ms var(--mz-ease, cubic-bezier(.2,.8,.2,1)), color 150ms ease; }
+.cw-head__home-chev svg { width: 16px; height: 16px; }
+.cw-head__home-chev svg path { stroke-width: 2; }
+.cw-head__home:hover, .cw-head__home:focus-visible { background: var(--cw-paper); }
+.cw-head__home:hover .cw-head__home-chev, .cw-head__home:focus-visible .cw-head__home-chev { color: var(--cw-teal); transform: translateX(-2px); }
+.cw-head__home:active { background: #ECEEF3; }
+.cw-head__home:focus { outline: none; }
+.cw-head__home:focus-visible { box-shadow: var(--cw-focus); }
+@media (prefers-reduced-motion: reduce) {
+  .cw-head__home-chev, .cw-head__home:hover .cw-head__home-chev, .cw-head__home:focus-visible .cw-head__home-chev { transform: none; transition: color 150ms ease; }
+}
+
+/* ------------------------------------------------------------
+   Bubbles v2 (owner 2026-10-15: "act as a lead designer and enhance the bubbles").
+   Problem: user (#E6EEEE) and Juna (#F5F6FA) were two pale grey tints of nearly equal value → no hierarchy,
+   washed out, generic. Now:
+   - user = solid Metzler teal, white text (≈ 9:1), a confident brand anchor for "this is me";
+   - Juna = warm neutral surface, near-ink text — calm, readable, clearly distinct from the user;
+   - one shape language: 18 px radius, 6 px "tail" corner at the bottom on the speaker's side.
+   ------------------------------------------------------------ */
+.cw-plate {
+  padding: 10px 16px;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--cw-teal);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.5;
+  box-shadow: 0 1px 2px rgba(1, 40, 40, .10);
+}
+.cw-plate a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
+.cw-plate ::selection { background: rgba(255, 255, 255, .3); }
+/* photo plate keeps a light caption strip so the image stays the hero */
+.cw-plate--photo { background: var(--cw-teal); padding: 0; }
+.cw-plate--photo .cw-plate__caption { background: var(--cw-teal); color: #fff; }
+.cw-plate__progress::after { background: var(--cw-led); }
+
+.cw-turn--bot .cw-turn__body > .cw-text {
+  padding: 12px 16px;
+  border-radius: 18px 18px 18px 6px;
+  background: #F2F4F3;
+  color: #161B1B;
+}
+.cw-turn--bot .cw-turn__body > .cw-text strong { color: #0E1414; font-weight: 600; }
+
+/* Owner 2026-10-15: "the logo looks floating". The header had no edge (its hairline only appeared once the log
+   scrolled) and none of the hub's top light, so ‹ + logo hovered in undefined white space. Now the header is an
+   anchored brand bar: a permanent soft hairline, plus the same faint teal light the hub panel carries top-left. */
+.cw-head {
+  border-bottom-color: rgba(1, 82, 83, .08);
+  background-color: #fff;
+  background-image: radial-gradient(120% 120px at 0% 0%, rgba(124, 198, 185, .14), rgba(124, 198, 185, 0) 70%),
+                    linear-gradient(180deg, rgba(1, 82, 83, .03), rgba(1, 82, 83, 0));
+  background-repeat: no-repeat;
+}
+.cw.is-scrolled .cw-head { border-bottom-color: rgba(1, 82, 83, .12); }
+
+/* Owner 2026-10-15: "brand colour is too much for the bubble". User bubble back to a light surface, but kept
+   distinct from Juna by HUE (cool teal tint + deep teal-ink text) rather than by a heavy fill.
+   Juna stays warm neutral (#F2F4F3 / ink). Contrast #0B3A3A on #E2EDEB ≈ 11:1. */
+.cw-plate {
+  background: #E2EDEB;
+  color: #0B3A3A;
+  box-shadow: none;
+}
+.cw-plate a { color: var(--cw-teal); }
+.cw-plate ::selection { background: rgba(1, 82, 83, .18); }
+.cw-plate--photo { background: #E2EDEB; }
+.cw-plate--photo .cw-plate__caption { background: #E2EDEB; color: #0B3A3A; }
+.cw-plate__progress::after { background: var(--cw-teal); }
+
+/* Owner 2026-10-15: "enhance the shape of the bubbles". The 6 px "tail" corner read as a clipped edge. Now one calm
+   shape for both speakers: uniform 20 px radius (a one-line message becomes a clean capsule), identity carried by side
+   + hue only. Juna gets slightly more air for longer answers. */
+.cw-plate {
+  border-radius: 20px;
+  padding: 11px 18px;
+  max-width: 78%;
+}
+.cw-turn--bot .cw-turn__body > .cw-text {
+  border-radius: 20px;
+  padding: 14px 18px;
+}
+.cw-turn--bot .cw-turn__body > .cw-text + .cw-source { padding-left: 18px; }
+.cw-plate--photo { border-radius: 20px; overflow: hidden; }
+
+/* Owner 2026-10-15: "adjust the logo size and center align it". The logo is the centred brand mark (absolute, so the
+   uneven left/right groups can't push it off-centre), 16 px tall (fits between ‹ and ↻ · expand · × at 400 px with
+   ≥ 8 px clearance). The back control is the chevron alone (same "Zurück zur Übersicht" button, 40 px target).
+   While ↻ shows "Rückgängig" it needs the space, so the logo fades out for those 6 s and returns. */
+.cw-head .cw-brand--center {
+  position: absolute; left: 50%; top: 50%;
+  height: 16px; width: auto;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.cw--sheet .cw-head .cw-brand--center { top: calc(50% + var(--cw-safe-t, 0px) / 2); }
+.cw-head__home { margin: 0 auto 0 -8px; padding: 8px; }
+.cw-head__home-chev, .cw-head__home-chev svg { width: 18px; height: 18px; }
+.cw-head:has(.cw-head__restart.is-undo) .cw-brand--center { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .cw-head .cw-brand--center { transition: none; } }
+
+/* Coordinator 2026-10-15 (with the centred-logo change): the mobile welcome's decorative product image (CW-10 filler)
+   is removed — it floated in the sheet and left a large gap. On the full-height sheet the welcome now starts right under
+   the header (greeting + four starters where people read first); the free space sits above the composer. */
+.cw--sheet .cw-welcome .cw-welcome__visual { display: none !important; }
+.cw--sheet .cw-welcome:not(.is-retired) { flex: 0 0 auto; }
+.cw--sheet .cw-log > .cw-welcome:first-child { margin-top: 0; }
+
+/* Owner 2026-10-15: "the icons must be consistent". All header controls share ONE spec: same 24-unit icon family,
+   20 px icon, 1.75 stroke, colour #5A6565, 36 px button (44 px hit area), 10 px radius, paper hover + ink colour.
+   The back chevron no longer has its own weight/colour/teal hover. */
+.cw-head .cw-hbtn,
+.cw-head .cw-head__home {
+  width: 36px; height: 36px; min-height: 36px;
+  padding: 0; gap: 0;
+  display: inline-grid; place-items: center;
+  border-radius: 10px;
+  color: #5A6565;
+}
+.cw-head .cw-head__home { margin: 0 auto 0 -8px; }
+.cw-head .cw-hbtn::before, .cw-head .cw-head__home::before { inset: -4px; }
+.cw-head .cw-hbtn svg,
+.cw-head .cw-head__home-chev,
+.cw-head .cw-head__home-chev svg { width: 20px; height: 20px; }
+.cw-head .cw-hbtn svg path, .cw-head .cw-hbtn svg circle,
+.cw-head .cw-head__home-chev svg path { stroke-width: 1.75; }
+.cw-head .cw-hbtn:hover, .cw-head .cw-head__home:hover,
+.cw-head .cw-head__home:focus-visible { background: var(--cw-paper); color: #1A1F1F; }
+.cw-head .cw-head__home:hover .cw-head__home-chev,
+.cw-head .cw-head__home:focus-visible .cw-head__home-chev { color: inherit; transform: none; }
+/* the in-header "Rückgängig" state keeps its own pill shape */
+.cw-head .cw-head__restart.is-undo { width: auto; padding: 0 12px 0 10px; gap: 6px; display: inline-flex; color: var(--cw-teal); }
+.cw-head .cw-head__restart.is-undo svg { width: 16px; height: 16px; }
+
+/* Owner 2026-10-15: "remove the full screen icon and adjust the logo size". Header = ‹ · logo · ↻ · ×.
+   With one control less, the centred logo goes up to 20 px (≈119 px wide; ≥ 50 px clearance at 400 px). */
+.cw-head__expand { display: none !important; }
+.cw-head .cw-brand--center { height: 20px; }
+
+/* Owner 2026-10-15: "we need AGB and Datenschutz links here" — a permanent legal line under the composer.
+   Before the first send: privacy sentence + links; after it: links only. Readability floor: 12 px text,
+   13 px / 500 links in #5A6565 (≈ 6:1), underlined, 44 px hit areas. */
+.cw .cw-composer__privacy {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; column-gap: 6px; row-gap: 2px;
+  margin-top: 8px;
+  font-size: 12px; line-height: 1.45; color: #5A6565; text-align: center;
+}
+.cw.has-sent .cw-composer__privacy { display: flex; }
+.cw.has-sent .cw-composer__privacy-text { display: none; }
+.cw-composer__legal { display: inline-flex; align-items: baseline; gap: 6px; }
+.cw-composer__legal > span { color: #A1A1A1; }
+.cw .cw-composer__privacy a {
+  position: relative;
+  color: #5A6565; font-size: 13px; font-weight: 500;
+  text-decoration: underline; text-decoration-color: rgba(90, 101, 101, .45); text-underline-offset: 2px;
+}
+.cw .cw-composer__privacy a::before { content: ""; position: absolute; inset: -14px -6px; }
+.cw .cw-composer__privacy a:hover { color: var(--cw-teal); text-decoration-color: currentColor; }
+.cw .cw-composer__privacy a:focus { outline: none; }
+.cw .cw-composer__privacy a:focus-visible { outline: 2px solid var(--cw-teal); outline-offset: 2px; border-radius: 2px; }
+/* the legal line shares the composer's left edge (cleaner than centred inside the meta row) */
+.cw .cw-composer__privacy { justify-content: flex-start; text-align: left; padding-left: 2px; }
+
+/* Termin modal opened from the chat: above the chat window / mobile sheet (1102). */
+body.cw-modal-over #contactModal { z-index: 1110; }
+
+/* Owner 2026-10-15: "Datenschutz · AGB" looked floating at the window's bottom edge. Same placement (under the composer),
+   now grounded like the hub's footer bar: a full-width strip flush with the window bottom — paper tone, a hairline above,
+   links centred — so it reads as the window's base, not loose text. Composer padding is 12px 16px (+ safe area). */
+.cw-composer__meta {
+  margin: 12px -16px calc(-12px - var(--cw-safe-b));
+  padding: 8px 16px calc(9px + var(--cw-safe-b));
+  background: var(--cw-paper);
+  border-top: 1px solid rgba(1, 82, 83, .08);
+  justify-content: center;
+}
+.cw .cw-composer__privacy { margin-top: 0; justify-content: center; text-align: center; padding-left: 0; width: 100%; }
+
+/* Voice input (owner 2026-10-15: "we need audio option as well"). Shares the send slot: idle mic = calm teal tint;
+   listening = teal fill + soft pulsing ring; the field shows "Ich höre zu …". No extra control in the composer. */
+.cw-composer__mic { background: var(--cw-teal-100); color: var(--cw-teal); }
+.cw-composer__mic:hover { background: #D5E4E4; }
+.cw-composer__mic svg { width: 18px; height: 18px; }
+.cw-composer__mic svg path, .cw-composer__mic svg rect { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cw.is-listening .cw-composer__mic { background: var(--cw-teal); color: #fff; }
+.cw.is-listening .cw-composer__mic::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(1, 82, 83, .35);
+  animation: cw-voice-pulse 1.4s ease-out infinite;
+}
+@keyframes cw-voice-pulse { 0% { box-shadow: 0 0 0 0 rgba(1, 82, 83, .35); } 100% { box-shadow: 0 0 0 10px rgba(1, 82, 83, 0); } }
+.cw.is-listening .cw-composer__box { border-color: var(--cw-teal); box-shadow: 0 0 0 3px rgba(1, 82, 83, .12); }
+@media (prefers-reduced-motion: reduce) { .cw.is-listening .cw-composer__mic::after { animation: none; box-shadow: 0 0 0 3px rgba(1, 82, 83, .25); } }
+
+/* Owner 2026-10-15: "the photo option looks floating" — the camera was a bare icon next to the mic's round tinted
+   button. Now both share one grammar: 36 px circles on the same baseline with an even 6 px gap. Camera = quiet
+   neutral tint (secondary), mic/send = teal (primary). Same 18 px icons, 1.8 stroke. */
+.cw-composer__box { column-gap: 6px; }
+.cw-composer__attach {
+  width: 36px; height: 36px; margin: 4px 0;
+  border-radius: 50%;
+  background: #F1F3F4; color: #5A6565;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.cw-composer__attach::before { inset: -4px; }
+.cw-composer__attach:hover { background: #E6E9EA; color: #1A1F1F; }
+.cw-composer__attach svg { width: 18px; height: 18px; }
+.cw-composer__attach svg path, .cw-composer__attach svg circle { stroke-width: 1.8; }
+.cw-composer__send, .cw-composer__mic { margin: 4px 4px 4px 0; }
+
+/* Owner 2026-10-16: greeting second line "Ihr Metzler Service Agent." (live botName). The
+   second line always reads "Ihr Metzler Service Agent." (line break in the copy; screen readers hear a space). */
+.cw-welcome__title { white-space: pre-line; }
+
+/* Owner 2026-10-16: "remove the marked text" — the KI note no longer carries the sentence, only Datenschutz · AGB. */
+.cw-ainotice .cw-ainotice__links { margin-top: 0; }
+/* Owner 2026-10-16: "the box as a whole looks repetitive, remove it fully" — no KI note box in the chat any more;
+   the KI chip stays as a static label (Datenschutz · AGB remain in the composer footer). */
+.cw-ainotice { display: none !important; }
+.cw-head__ki--label { cursor: default; }
+.cw-head__ki--label::before { content: none; }
+
+/* ------------------------------------------------------------
+   Responsive pass (2026-10-16). The sheet (phones in portrait and landscape, see SHEET_MQ) can be
+   wide: landscape phones and small tablets. The conversation keeps one readable column (max 680 px)
+   centred in it, the composer aligned to the same column; header and legal bar stay full width.
+   Short screens (<= 500 px tall, i.e. phones in landscape) get a slimmer head, log and composer so
+   the messages keep most of the height.
+   ------------------------------------------------------------ */
+.cw--sheet .cw-log,
+.cw--sheet .cw-confirm { padding-left: max(var(--cw-gutter), calc((100% - 680px) / 2)); padding-right: max(var(--cw-gutter), calc((100% - 680px) / 2)); }
+.cw--sheet .cw-composer > :not(.cw-composer__meta) { max-width: 680px; margin-left: auto; margin-right: auto; }
+@media (max-height: 500px) {
+  .cw--sheet .cw-head { height: calc(48px + var(--cw-safe-t)); }
+  .cw--sheet .cw-log { padding-top: 12px; padding-bottom: 8px; }
+  .cw--sheet .cw-composer { padding-top: 8px; padding-bottom: calc(8px + var(--cw-safe-b)); }
+  .cw--sheet .cw-composer__meta { margin-top: 8px; margin-bottom: calc(-8px - var(--cw-safe-b)); padding-top: 5px; padding-bottom: calc(6px + var(--cw-safe-b)); }
+}
+
+/* Owner 2026-11-26 (iPhone feedback: "icons too small, gaps not adequate, hard to press the right one").
+   Sheet only; the desktop window keeps its 36 px header spec and composer.
+   Header: the button IS the target (44 px, no ::before overhang), so restart and close keep a clean 8 px between
+   targets; ‹ and × glyphs are 24 px, 1:1 on the 24 grid (1.75 stroke unchanged). Back and close sit 6 px from the edges
+   (mirrored); the centred logo drops to 18 px under 360 px wide so it clears the restart icon.
+   Composer: camera and mic/send become 40 px circles with 22 px glyphs (send arrow 20 px), 7 px inside the border,
+   12 px apart; a 2 px overhang makes each a 44 px target with 8 px between neighbours. Box height stays 54 px. */
+.cw--sheet .cw-head { padding-right: 6px; }
+.cw--sheet .cw-head .cw-hbtn,
+.cw--sheet .cw-head .cw-head__home { height: 44px; min-height: 44px; border-radius: 12px; }
+.cw--sheet .cw-head .cw-hbtn:not(.is-undo),
+.cw--sheet .cw-head .cw-head__home { width: 44px; }
+.cw--sheet .cw-head .cw-head__home { margin: 0 auto 0 -10px; }
+.cw--sheet .cw-head .cw-hbtn::before, .cw--sheet .cw-head .cw-head__home::before { inset: 0; }
+.cw--sheet .cw-head .cw-hbtn:not(.is-undo) svg,
+.cw--sheet .cw-head .cw-head__home-chev,
+.cw--sheet .cw-head .cw-head__home-chev svg { width: 24px; height: 24px; }
+/* the restart ring reads larger than ‹ and × at the same box: 22 px, stroke compensated to the same 1.75 px on screen */
+.cw--sheet .cw-head .cw-head__restart:not(.is-undo) svg { width: 22px; height: 22px; }
+.cw--sheet .cw-head .cw-head__restart:not(.is-undo) svg path { stroke-width: 1.9; }
+@media (max-width: 359px) { .cw--sheet .cw-head .cw-brand--center { height: 18px; } }
+.cw--sheet .cw-composer__attach { width: 40px; height: 40px; margin: 2px 0 2px 4px; }
+.cw--sheet .cw-composer__send,
+.cw--sheet .cw-composer__mic { width: 40px; height: 40px; margin: 2px 2px 2px 6px; }
+.cw--sheet .cw-composer__attach::before, .cw--sheet .cw-composer__send::before { inset: -2px; }
+.cw--sheet .cw-composer__attach svg, .cw--sheet .cw-composer__mic svg { width: 22px; height: 22px; }
+.cw--sheet .cw-composer__send:not(.cw-composer__mic) svg { width: 20px; height: 20px; }
+
+/* Owner 2026-11-26 (iPhone): tapping the field zoomed the whole page in and cut the × and the mic off at the right.
+   iOS Safari auto-zooms any field whose text is under 16 px (it was 15 px) and stays zoomed after the keyboard closes.
+   16 px on phones and every touch screen stops the zoom; pinch-zoom stays available (no maximum-scale lock). */
+.cw--sheet .cw-composer__field { font-size: 16px; }
+@media (pointer: coarse) { .cw .cw-composer__field { font-size: 16px; } }

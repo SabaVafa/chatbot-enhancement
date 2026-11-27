@@ -1,0 +1,136 @@
+/* ============================================================
+   Variant B — "Ohne Cookies" (owner 2026-10-16)
+   The visitor has not accepted the KI-Chat cookie (ai_chat_consent).
+   The hub shows everything as usual; only the Juna field is greyed out.
+   Tapping it opens the shop's own JTL consent confirmation (#consent-confirm,
+   same copy and look as live). After consent the field works as in variant A.
+   Add-on only: variant A (the current hub) is not changed by this file.
+   ============================================================ */
+
+/* ---- greyed field ---- */
+.hh.is-consent-off .hh-ask__field {
+  background: var(--hh-paper);
+  border-color: rgba(1, 82, 83, .08);
+  color: transparent;
+  cursor: pointer;
+}
+.hh.is-consent-off .hh-ask__field::placeholder { color: transparent; }
+.hh.is-consent-off .hh-ask__send,
+.hh.is-consent-off .hh-head__resume { display: none !important; }
+.hh.is-consent-off .hh-ask__form button.hh-ask__ki { background: #E9ECEC; color: #6F7777; z-index: 2; }
+.hh.is-consent-off .hh-ask__form button.hh-ask__ki:hover,
+.hh.is-consent-off .hh-ask__form button.hh-ask__ki[aria-expanded="true"] { background: #DFE3E3; }
+
+/* the gate: one button over the field (label + lock); the KI chip stays usable on top of it */
+.hh-ask__gate { display: none; }
+.hh.is-consent-off .hh-ask__gate {
+  position: absolute; z-index: 1; inset: 0;
+  display: flex; align-items: center; gap: 10px;
+  margin: 0; padding: 0 6px 0 50px;
+  border: 0; border-radius: 14px;
+  background: transparent; color: #6A6A6A;
+  font: 400 15px/1.4 var(--hh-font); text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.hh.is-consent-off .hh-ask__gate:hover { background: rgba(1, 82, 83, .04); color: var(--hh-ink); }
+.hh.is-consent-off .hh-ask__gate:focus { outline: none; }
+.hh.is-consent-off .hh-ask__gate:focus-visible { box-shadow: var(--mz-focus, 0 0 0 3px rgba(1, 82, 83, .35)); }
+.hh-ask__gate-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hh-ask__gate-lock {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: #E9ECEC; color: #6F7777;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.hh-ask__gate:hover .hh-ask__gate-lock { background: var(--hh-teal-100); color: var(--hh-teal); }
+.hh-ask__gate-lock svg { width: 18px; height: 18px; }
+.hh-ask__gate-lock svg path, .hh-ask__gate-lock svg rect { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+/* the hub's privacy-on-typing line never shows while gated (nothing can be typed) */
+.hh.is-consent-off .hh-ask__privacy-wrap { display: none; }
+
+/* unlock: field fades from grey to white once consent is given */
+.hh.is-consent-unlocking .hh-ask__field { transition: background-color 240ms ease, border-color 240ms ease; }
+
+/* ---- JTL consent confirmation (#consent-confirm) — replica of the live Snackys/JTL modal
+   (edelstahl-tuerklingel.de, checked 2026-10-16: consent.js v1.4.2, same copy, colours and metrics) ---- */
+.pv-consent {
+  position: fixed; inset: 0; z-index: 100001;
+  padding: 16px; overflow: hidden auto;
+  background: rgba(0, 0, 0, .8);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  opacity: 0; transition: opacity .2s;
+}
+.pv-consent[hidden] { display: none; }
+.pv-consent.is-show { opacity: 1; }
+/* owner 2026-11-25: centred in the window (live sits 2rem from the top). Flex + margin:auto centres both ways and,
+   unlike align-items:center, still scrolls from the top when the dialog is taller than a short screen. */
+.pv-consent:not([hidden]) { display: flex; }
+.pv-consent__content {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 40rem; margin: auto; padding: 32px;
+  border-radius: 8px; background: #fff; color: #555;
+  font-size: 16px; line-height: 1.5; text-align: left;
+}
+.pv-consent__close {
+  position: absolute; top: 0; right: 0;
+  padding: 16px; border: 0; background: none; color: #555;
+  cursor: pointer; transition: color .2s;
+}
+.pv-consent__close:hover { color: #015253; }
+.pv-consent__close svg { display: block; width: 24px; height: 24px; }
+.pv-consent__close svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.pv-consent__title { display: block; margin: 0 0 8px; color: #333; font-weight: 600; font-size: 16px; }
+.pv-consent__content p { margin: 0 0 16px; }
+.pv-consent__content a { color: #015253; }
+.pv-consent__more { display: block; margin: 0; text-align: right; color: #015253; font-size: 16px; }
+.pv-consent__more svg { display: inline-block; width: 12px; height: 12px; margin-left: 6px; vertical-align: -1px; transition: transform .2s; }
+.pv-consent__more svg path { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.pv-consent__more[aria-expanded="true"] svg { transform: rotate(180deg); }
+.pv-consent__head { display: block; margin: 0 0 8px; color: #333; font-weight: 600; }
+.pv-consent__help { display: block; margin-top: 8px; color: #555; }
+.pv-consent__desc[hidden] { display: none; }
+.pv-consent__desc span { display: block; color: #333; font-weight: 600; }
+.pv-consent__desc p { margin: 0 0 8px; }
+.pv-consent__btns { display: flex; flex-wrap: wrap; margin: 16px -4px -4px; }
+.pv-consent__btns > div { box-sizing: border-box; width: 50%; padding: 4px; }
+.pv-consent__btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  box-sizing: border-box; width: 100%;
+  padding: 11.2px 19.2px; margin: 0;
+  border: 1px solid #ddd; border-radius: 2.4px;
+  background: #ddd; color: #555;
+  font: 600 12.8px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  cursor: pointer; transition: box-shadow .3s;
+}
+.pv-consent__btn--outline { background: transparent; }
+.pv-consent__btn:hover, .pv-consent__btn:focus-visible { box-shadow: 0 0 5px 0 rgba(0, 0, 0, .3); outline: none; }
+.pv-consent__close:focus-visible, .pv-consent__more:focus-visible { outline: 2px solid #015253; outline-offset: 2px; }
+@media (max-width: 575px) {
+  .pv-consent__content { padding: 24px 16px 16px; }
+  .pv-consent__btns > div { width: 100%; }
+}
+
+/* ---- prototype-only variant switcher (bottom-left; never part of the shop) ---- */
+.pv-switch {
+  position: fixed; z-index: 1030; left: 16px; bottom: 16px;
+  display: inline-flex; gap: 2px; padding: 3px;
+  border-radius: 999px; background: #fff;
+  box-shadow: 0 0 0 1px rgba(1, 82, 83, .10), 0 4px 12px rgba(0, 0, 0, .10);
+  font: 600 12px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.pv-switch a {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 12px; border-radius: 999px;
+  color: #5A6565; text-decoration: none; white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.pv-switch a:hover { background: #F5F6FA; color: #0E1414; }
+.pv-switch a[aria-current="page"] { background: #015253; color: #fff; }
+.pv-switch a:focus { outline: none; }
+.pv-switch a:focus-visible { box-shadow: 0 0 0 3px rgba(1, 82, 83, .35); }
+.pv-switch b { font-weight: 700; opacity: .7; }
+@media print { .pv-switch { display: none; } }

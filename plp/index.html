@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Product Listing Page — Redesign Concept</title>
+  <link rel="canonical" href="sprechanlage.html">
+  <!-- Entry point of the Help Hub / Juna chat prototype. Forwards to the Türsprechanlagen PLP and keeps
+       query + hash, so test flags work from here: ?chat=mock|offline|live, ?chat_speed=0, ?hh_now=… -->
+  <!-- Cache-proof (2026-10-15): the local static server sends no cache headers, so browsers kept showing stale
+       copies of sprechanlage.html. A fresh `_v` timestamp makes every visit load the current page (assets are versioned). -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <script>(function () {
+    var q = location.search ? location.search + '&' : '?';
+    location.replace('sprechanlage.html' + q + '_v=' + Date.now() + location.hash);
+  })();</script>
+  <noscript><meta http-equiv="refresh" content="0; url=sprechanlage.html"></noscript>
+</head>
+<body>
+  <p>Weiterleitung zur <a href="sprechanlage.html">Produktliste Türsprechanlagen</a> …</p>
+</body>
+</html>
